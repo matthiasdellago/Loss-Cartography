@@ -1,4 +1,4 @@
-# test_ParameterVector.py
+# test_parameter_vector.py
 import pytest
 import torch
 from torch.nn import Parameter
