@@ -50,6 +50,9 @@ class Cartographer:
         directions (int): The number of random directions to be generated.
         scales (int): The number of scales to be used in the multi-scale analysis.
         device (torch.device): The device (CPU or GPU) used for the analysis.
+        distances (DataFrame): The distances to step along the specified directions.
+        directions (DataFrame): The normalized directions in the parameter space.
+        locations (DataFrame): The locations in parameter space at which the loss will be measured.
         profiles (DataFrame): The loss profiles measured along the specified directions.
         roughness (DataFrame): The roughness profiles measured along the specified directions.
     """
@@ -61,20 +64,22 @@ class Cartographer:
         directions: int = 3,
         scales: int = 3,
     ) -> None:
-        self._validate_inputs(model, dataloader, loss_function, directions, scales)
+        self._validate_inputs(model, dataloader, loss_function, num_directions, num_scales)
         self.center = model
         self.dataloader = dataloader
         self.loss_function = loss_function
-        self.directions = directions
-        self.scales = scales
+        self.num_directions = num_directions
+        self.num_scales = num_scales
 
-        # Determine the available device and move everything to it
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.center.to(self.device)
-        self.loss_function.to(self.device)
 
         self.distances = self.generate_distances()
         self.directions = self.generate_directions()
+
+        # Initialize the attributes to None
+        self.locations = None
+        self.profiles = None
+        self.roughness = None
 
     def __call__(self) -> None:
         """
