@@ -2,7 +2,7 @@
 import pytest
 import torch
 from torch.nn import Parameter
-from ParameterVector import ParameterVector
+from parameter_vector import ParameterVector
 
 class TestModel(ParameterVector):
     def __init__(self):

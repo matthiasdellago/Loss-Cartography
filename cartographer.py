@@ -19,7 +19,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.modules.loss import _Loss
 from pandas import DataFrame
-from ParameterVector import ParameterVector # vector operations on nn.Module
+from parameter_vector import ParameterVector # vector operations on nn.Module
 import seaborn as sns
 import matplotlib.pyplot as plt
 
