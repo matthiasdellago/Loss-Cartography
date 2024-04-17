@@ -15,6 +15,7 @@ In addition to the profiles, the cartographer also performs a roughness analysis
 For each point on the profile, it measures the roughness at that scale by way of the coastline paradox.
 """
 
+import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.modules.loss import _Loss
@@ -61,8 +62,8 @@ class Cartographer:
         model: nn.Module,
         dataloader: DataLoader,
         loss_function: _Loss,
-        directions: int = 3,
-        scales: int = 3,
+        num_directions: int = 3,
+        num_scales: int = 3,
     ) -> None:
         self._validate_inputs(model, dataloader, loss_function, num_directions, num_scales)
         self.center = model

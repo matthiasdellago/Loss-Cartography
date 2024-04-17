@@ -32,6 +32,7 @@ def loss_function():
     return torch.nn.CrossEntropyLoss()
 
 def test_input_validation(model, dataloader, loss_function):
+    # Test validation during __init__ 
     # Test that the Cartographer class validates the input arguments correctly
     with pytest.raises(ValueError):
         Cartographer(model=None, dataloader=dataloader, loss_function=loss_function)
@@ -40,9 +41,9 @@ def test_input_validation(model, dataloader, loss_function):
     with pytest.raises(ValueError):
         Cartographer(model=model, dataloader=dataloader, loss_function=None)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, directions=-1)
+        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=-1)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, scales=-1)
+        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_scales=-1)
     
     # Test that the Cartographer class accepts the input arguments correctly
     cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
@@ -50,30 +51,30 @@ def test_input_validation(model, dataloader, loss_function):
     assert cartographer.dataloader is dataloader
     assert cartographer.loss_function is loss_function
 
-def test_direction_generation(model, dataloader, loss_function):
-    # Test that the direction generation works as expected
-    pass
+# def test_direction_generation(model, dataloader, loss_function):
+#     # Test that the direction generation works as expected
+#     pass
 
-def test_distance_generation(model, dataloader, loss_function):
-    # Test that the distance generation works as expected
-    pass
+# def test_distance_generation(model, dataloader, loss_function):
+#     # Test that the distance generation works as expected
+#     pass
 
-def test_location_generation(model, dataloader, loss_function):
-    # Test that the location generation works as expected
-    pass
+# def test_location_generation(model, dataloader, loss_function):
+#     # Test that the location generation works as expected
+#     pass
 
-def test_loss_measurement(model, dataloader, loss_function):
-    # Test that the loss measurement works as expected
-    pass
+# def test_loss_measurement(model, dataloader, loss_function):
+#     # Test that the loss measurement works as expected
+#     pass
 
-def test_roughness_measurement(model, dataloader, loss_function):
-    # Test that the roughness measurement works as expected
-    pass
+# def test_roughness_measurement(model, dataloader, loss_function):
+#     # Test that the roughness measurement works as expected
+#     pass
 
-def test_full_workflow(model, dataloader, loss_function):
-    # Test the full Cartographer workflow
-    pass
+# def test_full_workflow(model, dataloader, loss_function):
+#     # Test the full Cartographer workflow
+#     pass
 
-def test_plot_generation(model, dataloader, loss_function):
-    # Test that the plot generation works as expected
-    pass
+# def test_plot_generation(model, dataloader, loss_function):
+#     # Test that the plot generation works as expected
+#     pass
