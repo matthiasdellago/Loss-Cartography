@@ -58,7 +58,7 @@ class Cartographer:
     """
     def __init__(
         self,
-        model: Module,
+        model: nn.Module,
         dataloader: DataLoader,
         loss_function: _Loss,
         directions: int = 3,
@@ -194,7 +194,7 @@ class Cartographer:
 
     def _validate_inputs(
         self,
-        model: Module,
+        model: nn.Module,
         dataloader: DataLoader,
         loss_function: _Loss,
         directions: int,
@@ -206,7 +206,7 @@ class Cartographer:
         Raises:
             ValueError: If any of the input arguments are invalid.
         """
-        if not isinstance(model, Module):
+        if not isinstance(model, nn.Module):
             raise ValueError("'model' must be an instance of torch.nn.Module")
 
         if not isinstance(dataloader, DataLoader):
