@@ -12,9 +12,10 @@ class ParameterVector(nn.Module):
         - There is no gradient tracking.
         - There are in-place and non-in-place versions of the operations. The in-place versions are preferred for resource efficiency.
         - Use equal() instead of == or != if you want to see if the parameters are the same.
+    TODO: Find a nice way to make an existing nn.Module compatible with this class.
     """
 
-    def _ensure_compatible(self, other):
+    def _ensure_compatible(self, other: 'ParameterVector') -> None:
         if not isinstance(other, self.__class__):
             raise TypeError(f"Compatibility error: 'other' model {other} is of type {type(other)}, expected {type(self)}.")
         
@@ -24,13 +25,13 @@ class ParameterVector(nn.Module):
             if param.data.shape != other_param.data.shape:
                 raise ValueError(f"Parameter shape mismatch in '{name}': {param.data.shape} (self) vs {other_param.data.shape} (other).")
 
-    def _clone(self):
+    def _clone(self) -> 'ParameterVector':
         """
         Helper method to clone this ParameterVector, creating a deep copy.
         """
         return deepcopy(self)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs in-place element-wise addition between this ParameterVector and another.
         This is the preferred method for resource efficiency.
@@ -40,7 +41,7 @@ class ParameterVector(nn.Module):
             param.data.add_(other_param.data)
         return self
 
-    def __isub__(self, other):
+    def __isub__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs in-place element-wise subtraction between this ParameterVector and another.
         This is the preferred method for resource efficiency.
@@ -50,7 +51,7 @@ class ParameterVector(nn.Module):
             param.data.sub_(other_param.data)
         return self
 
-    def __imul__(self, other):
+    def __imul__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs in-place element-wise multiplication between this ParameterVector's parameters and a scalar.
         This is the preferred method for resource efficiency.
@@ -61,7 +62,7 @@ class ParameterVector(nn.Module):
             param.data.mul_(other)
         return self
 
-    def __abs__(self):
+    def __abs__(self) -> float:
         """
         Returns the L2 norm of the ParameterVector.
         """
@@ -70,7 +71,7 @@ class ParameterVector(nn.Module):
             norm += torch.norm(param).item() ** 2
         return norm ** 0.5
 
-    def equal(self, other, tol=1e-6):
+    def equal(self, other, tol=1e-6) -> bool:
         """
         Compares this ParameterVector with another for equality, within a tolerance.
         Not overloading __eq__ because that opens a can of worms with inheritance of __hash__.
@@ -81,7 +82,7 @@ class ParameterVector(nn.Module):
                 return False
         return True
 
-    def __add__(self, other):
+    def __add__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs element-wise addition between this ParameterVector and another, returning a new ParameterVector
         without modifying the original ones. This operation is not in-place.
@@ -90,7 +91,7 @@ class ParameterVector(nn.Module):
         result += other  # Utilizes the __iadd__ for in-place addition on the clone
         return result
 
-    def __sub__(self, other):
+    def __sub__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs element-wise subtraction between this ParameterVector and another, returning a new ParameterVector
         without modifying the original ones. This operation is not in-place.
@@ -99,7 +100,7 @@ class ParameterVector(nn.Module):
         result -= other  # Utilizes the __isub__ for in-place subtraction on the clone
         return result
 
-    def __mul__(self, other):
+    def __mul__(self, other: 'ParameterVector') -> 'ParameterVector':
         """
         Performs element-wise multiplication between this ParameterVector's parameters and a scalar, returning a new ParameterVector
         without modifying the original. This operation is not in-place.
