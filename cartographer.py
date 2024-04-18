@@ -63,14 +63,17 @@ class Cartographer:
         dataloader: DataLoader,
         loss_function: _Loss,
         num_directions: int = 3,
-        num_scales: int = 3,
+        pow_min_dist: int = -21,
+        pow_max_dist: int = 3,
     ) -> None:
-        self._validate_inputs(model, dataloader, loss_function, num_directions, num_scales)
+        self._validate_inputs(model, dataloader, loss_function, num_directions, pow_min_dist, pow_max_dist)
         self.center = model
         self.dataloader = dataloader
         self.loss_function = loss_function
         self.num_directions = num_directions
-        self.num_scales = num_scales
+        self.pow_min_dist = pow_min_dist
+        self.pow_max_dist = pow_max_dist
+        self.scales = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -97,12 +100,19 @@ class Cartographer:
         Generate how far to step along the various directions.
         Each step is twice as large as the previous.
         Different step sizes for different directions, to avoid artefacts of hitting special frequencies in the model.
+        If we assume our model is in float32 the model smallest scale the model can resolve is 1.1754944e-38.
+        And the largest parameter in gpt2 is 1e+8.
+        Log_2(1e8/1.1754944e-38) = 152.6. That's the number of doublings required to go from the smallest scale to the largest.
+
+        Learning rates are typically in the range of 1e-6 to 1e-2. 
+        So there is some reason to belive that that is where the interesting stuff is happening.
+        
+        I think we should center the scales around 1e-6. That means if we have n scales, the smallest scale around 1e-6/2^(n/2) and the largest scale is 1e-6*2^(n/2).
 
         Returns:
             Dataframe: distances for each direction.
                 Dimensions: (scales, directions)
         """
-        pass
     
     def generate_directions(self) -> DataFrame:
         """
@@ -199,11 +209,12 @@ class Cartographer:
         dataloader: DataLoader,
         loss_function: _Loss,
         directions: int,
-        scales: int,
+        pow_min_dist: int,
+        pow_max_dist: int,
     ) -> None:
         """
         Validates the input arguments for the Cartographer class.
-
+        TODO: Add what the values actually are to the error message if that is not printed by default.
         Raises:
             ValueError: If any of the input arguments are invalid.
         """
@@ -219,5 +230,11 @@ class Cartographer:
         if not isinstance(directions, int) or directions < 0:
             raise ValueError("'directions' must be a positive integer")
 
-        if not isinstance(scales, int) or scales < 0:
-            raise ValueError("'scales' must be a positive integer")
+        if not isinstance(pow_min_dist, int):
+            raise ValueError("'pow_min_dist' must be an integer.")
+
+        if not isinstance(pow_max_dist, int):
+            raise ValueError("'pow_max_dist' must be an integer.")
+        
+        if not pow_min_dist < pow_max_dist:
+            raise ValueError("'pow_min_dist' must be smaller than 'pow_max_dist'")

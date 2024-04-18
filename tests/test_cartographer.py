@@ -43,7 +43,7 @@ def test_input_validation(model, dataloader, loss_function):
     with pytest.raises(ValueError):
         Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=-1)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_scales=-1)
+        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, pow_min_dist=3, pow_max_dist=1)
     
     # Test that the Cartographer class accepts the input arguments correctly
     cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
@@ -51,12 +51,15 @@ def test_input_validation(model, dataloader, loss_function):
     assert cartographer.dataloader is dataloader
     assert cartographer.loss_function is loss_function
 
+def test_distance_generation(model, dataloader, loss_function):
+    # Test that the distance generation works as expected
+    # First with a hand calculated example
+    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=2, pow_min_dist=-20, pow_max_dist=-18)
+    distances = cartographer.generate_distances()
+    
+
 # def test_direction_generation(model, dataloader, loss_function):
 #     # Test that the direction generation works as expected
-#     pass
-
-# def test_distance_generation(model, dataloader, loss_function):
-#     # Test that the distance generation works as expected
 #     pass
 
 # def test_location_generation(model, dataloader, loss_function):
