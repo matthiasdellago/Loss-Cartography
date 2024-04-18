@@ -23,6 +23,8 @@ from pandas import DataFrame
 from parameter_vector import ParameterVector # vector operations on nn.Module
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy import array
 
 class Cartographer:
     """
@@ -49,13 +51,15 @@ class Cartographer:
         dataloader (DataLoader): The dataset used to compute the loss.
         loss_function (_Loss): The loss function used to evaluate the model.
         directions (int): The number of random directions to be generated.
+        pow_min_dist (int): 2^pow_min_dist is the smallest distance to be used in the multi-scale analysis.
+        pow_max_dist (int): 2^pow_max_dist is the largest distance to be used in the multi-scale analysis.
         scales (int): The number of scales to be used in the multi-scale analysis.
         device (torch.device): The device (CPU or GPU) used for the analysis.
-        distances (DataFrame): The distances to step along the specified directions.
+        distances (array): The distances to step along the specified directions.
         directions (DataFrame): The normalized directions in the parameter space.
         locations (DataFrame): The locations in parameter space at which the loss will be measured.
-        profiles (DataFrame): The loss profiles measured along the specified directions.
-        roughness (DataFrame): The roughness profiles measured along the specified directions.
+        profiles (array): The loss profiles measured along the specified directions.
+        roughness (array): The roughness profiles measured along the specified directions.
     """
     def __init__(
         self,
@@ -73,7 +77,7 @@ class Cartographer:
         self.num_directions = num_directions
         self.pow_min_dist = pow_min_dist
         self.pow_max_dist = pow_max_dist
-        self.scales = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
+        self.num_scales = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -95,7 +99,7 @@ class Cartographer:
         self.profiles = self.measure_loss()
         self.roughness = self.measure_roughness()
 
-    def generate_distances(self) -> DataFrame:
+    def generate_distances(self) -> array:
         """
         Generate how far to step along the various directions.
         Each step is twice as large as the previous.
@@ -107,13 +111,26 @@ class Cartographer:
         Learning rates are typically in the range of 1e-6 to 1e-2. 
         So there is some reason to belive that that is where the interesting stuff is happening.
         
-        I think we should center the scales around 1e-6. That means if we have n scales, the smallest scale around 1e-6/2^(n/2) and the largest scale is 1e-6*2^(n/2).
-
         Returns:
-            Dataframe: distances for each direction.
-                Dimensions: (scales, directions)
+            array: distances for each direction.
+                Dimensions: (num_scales, num_directions)
         """
-    
+
+        # To avoid hitting special frequencies in the model, we use different step sizes for different directions.
+        # This way we get a logarithmically spaced set of distances.
+        dir_steps = 2. ** np.linspace(0, 1, self.num_directions, endpoint=False)
+
+        # For a given direction, we step from 2^pow_min_dist to 2^pow_max_dist
+        # 2^pow_max_dist should be included, so we add 1 to the range
+        scale_steps = 2. ** np.arange(self.pow_min_dist, self.pow_max_dist + 1)
+
+        # Compute the matrix of distances using np.outer
+        distances = np.outer(scale_steps, dir_steps)
+        
+        assert distances.shape == (self.num_scales,self.num_directions)
+
+        return distances
+            
     def generate_directions(self) -> DataFrame:
         """
         Generates a set of random, normalised directions in the parameter space.
@@ -122,7 +139,7 @@ class Cartographer:
         Returns:
             DataFrame: A DataFrame containing the nomralised direction vectors.
             These vectors are model parameters.
-                Dimensions: (directions)
+                Dimensions: (num_directions)
         """
         pass
     
@@ -133,22 +150,22 @@ class Cartographer:
 
         Returns:
             Dataframe: locations where the loss will be measured.
-                Dimensions: (scales, directions)
+                Dimensions: (num_scales, num_directions)
         """
         pass
 
-    def measure_loss(self) -> DataFrame:
+    def measure_loss(self) -> array:
         """
         Measures the loss at all location, including the center.
         Evaluates in parallel on devide using torch.jit.fork.
 
         Returns:
-            Dataframe: loss profiles measured in each direction, starting from the center.
-                Dimensions: (scales+1, directions), because we include the center.
+            array: loss profiles measured in each direction, starting from the center.
+                Dimensions: (num_scales+1, num_directions), because we include the center.
         """
         pass
 
-    def measure_roughness(self) -> DataFrame:
+    def measure_roughness(self) -> array:
         """
         Measures the roughness for all triples of points on the loss profile.
         Consider you measure the following points: 
@@ -171,8 +188,8 @@ class Cartographer:
         Since the predecessor of every point is at half the distance to the center, we can calculate the roughness for all triples of points in parallel.
 
         Returns:
-            Dataframe: roughness at each scale, in each direction.
-                Dimensions: (scales-1, directions), since no roughness can be calculated for the start and end points.
+            array: roughness at each scale, in each direction.
+                Dimensions: (num_scales-1, num_directions), since no roughness can be calculated for the start and end points.
         """
         pass
 
@@ -214,7 +231,7 @@ class Cartographer:
     ) -> None:
         """
         Validates the input arguments for the Cartographer class.
-        TODO: Add what the values actually are to the error message if that is not printed by default.
+
         Raises:
             ValueError: If any of the input arguments are invalid.
         """
@@ -236,5 +253,5 @@ class Cartographer:
         if not isinstance(pow_max_dist, int):
             raise ValueError("'pow_max_dist' must be an integer.")
         
-        if not pow_min_dist < pow_max_dist:
-            raise ValueError("'pow_min_dist' must be smaller than 'pow_max_dist'")
+        if not pow_min_dist <= pow_max_dist:
+            raise ValueError("'pow_min_dist' must be smaller equal 'pow_max_dist'")
