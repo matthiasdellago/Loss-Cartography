@@ -2,6 +2,7 @@
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torch import nn
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from cartographer import Cartographer
@@ -79,11 +80,26 @@ def test_distance_generation_manual(model, dataloader, loss_function):
     assert distances.shape == (3, 2), f"Unexpected shape: {distances.shape}, expected (3, 2)"
     assert np.allclose(distances, manual_distances), f"Unexpected values:\n{distances}\nExpected:\n{manual_distances}"
 
-
-
-# def test_direction_generation(model, dataloader, loss_function):
-#     # Test that the direction generation works as expected
-#     pass
+def test_direction_generation(model, dataloader, loss_function):
+    num = 7
+    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=num)
+    directions = cartographer.generate_directions()
+    
+    assert isinstance(directions, nn.ModuleList), f"Expected type nn.ModuleList, but got {type(directions)}"
+    # check that all objects in the ModuleList are of the same type as model
+    assert all(isinstance(direction, type(model)) for direction in directions), f"Expected all directions to be of type {type(model)}, but got {set(type(direction) for direction in directions)}"
+    # check that the number of directions is as expected
+    assert len(directions) == num, f"Expected {num} directions, but got {len(directions)}"
+    # check that the directions are normalized
+    for direction in directions:
+        assert np.isclose(abs(direction),1.0), f"Expected norm to be 1, but got {abs(direction)}"
+    # in a high dimensional space, randomly chosen directions should be quasi-orthogonal
+    for i in range(len(directions)):
+        for j in range(i + 1, len(directions)):
+            params_i = torch.cat([p.data.view(-1) for p in directions[i].parameters()])
+            params_j = torch.cat([p.data.view(-1) for p in directions[j].parameters()])
+            dot_product = torch.dot(params_i, params_j)
+            assert torch.abs(dot_product) < 1e-1, f'Expected dot product to be close to zero, but got {dot_product}'
 
 # def test_location_generation(model, dataloader, loss_function):
 #     # Test that the location generation works as expected
