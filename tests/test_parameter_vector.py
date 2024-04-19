@@ -67,7 +67,7 @@ def test_normalization():
     A = TestModel()
     s = torch.rand(1).item()
 
-    A *= (1 / abs(A))
+    A /= abs(A)
     assert pytest.approx(abs(A), abs=1e-6) == 1, "Normalization did not result in a unit norm."
 
     A *= s
@@ -94,6 +94,21 @@ def test_in_place_multiplication():
         param.data.zero_()
     A *= 0  # Multiplying by 0 to zero out the parameters
     assert A.equal(zeros_A), "In-place multiplication does not zero the model as expected."
+
+def test_division():
+    A = TestModel()
+    s = torch.rand(1).item()
+    B = A/s
+    B *= s
+    assert A.equal(B), "Division and multiplication are not inverse operations."
+
+def test_in_place_division():
+    A = TestModel()
+    s = torch.rand(1).item()
+    B = A*s
+    B /= s
+    assert A.equal(B), "Division and multiplication are not inverse operations."
+
 
 def test_error_handling_incompatible_operation():
     A = TestModel()

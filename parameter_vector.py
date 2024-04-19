@@ -51,7 +51,7 @@ class ParameterVector(nn.Module):
             param.data.sub_(other_param.data)
         return self
 
-    def __imul__(self, other: 'ParameterVector') -> 'ParameterVector':
+    def __imul__(self, other: (int, float)) -> 'ParameterVector':
         """
         Performs in-place element-wise multiplication between this ParameterVector's parameters and a scalar.
         This is the preferred method for resource efficiency.
@@ -61,6 +61,19 @@ class ParameterVector(nn.Module):
         for name, param in self.named_parameters():
             param.data.mul_(other)
         return self
+
+    def __idiv__(self, other: (int, float)) -> 'ParameterVector':
+        """
+        Performs in-place element-wise division between this ParameterVector's parameters and a scalar.
+        This is the preferred method for resource efficiency.
+        """
+        if not isinstance(other, (int, float)):
+            raise TypeError(f"Division error: 'other' is of type {type(other)}, expected int or float.")
+        for name, param in self.named_parameters():
+            param.data.div_(other)
+        return self
+
+    
 
     def __abs__(self) -> float:
         """
@@ -100,7 +113,7 @@ class ParameterVector(nn.Module):
         result -= other  # Utilizes the __isub__ for in-place subtraction on the clone
         return result
 
-    def __mul__(self, other: 'ParameterVector') -> 'ParameterVector':
+    def __mul__(self, other: (int, float)) -> 'ParameterVector':
         """
         Performs element-wise multiplication between this ParameterVector's parameters and a scalar, returning a new ParameterVector
         without modifying the original. This operation is not in-place.
@@ -108,5 +121,12 @@ class ParameterVector(nn.Module):
         result = self._clone()
         result *= other  # Utilizes the __imul__ for in-place multiplication on the clone
         return result
-
-
+    
+    def __truediv__(self, other: (int, float)) -> 'ParameterVector':
+        """
+        Performs element-wise division between this ParameterVector's parameters and a scalar, returning a new ParameterVector
+        without modifying the original. This operation is not in-place.
+        """
+        result = self._clone()
+        result.__idiv__(other)  # Utilizes the __idiv__ for in-place division on the clone
+        return result
