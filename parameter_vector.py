@@ -51,29 +51,27 @@ class ParameterVector(nn.Module):
             param.data.sub_(other_param.data)
         return self
 
-    def __imul__(self, other: (int, float)) -> 'ParameterVector':
+    def __imul__(self, scalar: (int, float)) -> 'ParameterVector':
         """
         Performs in-place element-wise multiplication between this ParameterVector's parameters and a scalar.
         This is the preferred method for resource efficiency.
         """
-        if not isinstance(other, (int, float)):
-            raise TypeError(f"Multiplication error: 'other' is of type {type(other)}, expected int or float.")
+        if not isinstance(scalar, (int, float)):
+            raise TypeError(f"Multiplication error: 'scalar' is of type {type(scalar)}, expected int or float.")
         for name, param in self.named_parameters():
-            param.data.mul_(other)
+            param.data.mul_(scalar)
         return self
 
-    def __idiv__(self, other: (int, float)) -> 'ParameterVector':
+    def __itruediv__(self, scalar: (int, float)) -> 'ParameterVector':
         """
         Performs in-place element-wise division between this ParameterVector's parameters and a scalar.
         This is the preferred method for resource efficiency.
+        Defers to __imul__ for in-place multiplication by the reciprocal.
         """
-        if not isinstance(other, (int, float)):
-            raise TypeError(f"Division error: 'other' is of type {type(other)}, expected int or float.")
-        for name, param in self.named_parameters():
-            param.data.div_(other)
-        return self
+        if not isinstance(scalar, (int, float)):
+            raise TypeError(f"Division error: 'scalar' is of type {type(scalar)}, expected int or float.")
 
-    
+        return self.__imul__(1/scalar)
 
     def __abs__(self) -> float:
         """
@@ -84,7 +82,7 @@ class ParameterVector(nn.Module):
             norm += torch.norm(param).item() ** 2
         return norm ** 0.5
 
-    def equal(self, other, tol=1e-6) -> bool:
+    def equal(self, other: 'ParameterVector', tol=1e-6) -> bool:
         """
         Compares this ParameterVector with another for equality, within a tolerance.
         Not overloading __eq__ because that opens a can of worms with inheritance of __hash__.
@@ -113,20 +111,20 @@ class ParameterVector(nn.Module):
         result -= other  # Utilizes the __isub__ for in-place subtraction on the clone
         return result
 
-    def __mul__(self, other: (int, float)) -> 'ParameterVector':
+    def __mul__(self, scalar: (int, float)) -> 'ParameterVector':
         """
         Performs element-wise multiplication between this ParameterVector's parameters and a scalar, returning a new ParameterVector
         without modifying the original. This operation is not in-place.
         """
         result = self._clone()
-        result *= other  # Utilizes the __imul__ for in-place multiplication on the clone
+        result *= scalar  # Utilizes the __imul__ for in-place multiplication on the clone
         return result
     
-    def __truediv__(self, other: (int, float)) -> 'ParameterVector':
+    def __truediv__(self, scalar: (int, float)) -> 'ParameterVector':
         """
         Performs element-wise division between this ParameterVector's parameters and a scalar, returning a new ParameterVector
         without modifying the original. This operation is not in-place.
         """
         result = self._clone()
-        result.__idiv__(other)  # Utilizes the __idiv__ for in-place division on the clone
+        result /= scalar  # Utilizes the __idiv__ for in-place division on the clone
         return result
