@@ -101,6 +101,36 @@ def test_direction_generation(model, dataloader, loss_function):
             dot_product = torch.dot(params_i, params_j)
             assert torch.abs(dot_product) < 1e-1, f'Expected dot product to be close to zero, but got {dot_product}'
 
+def test_shift(model):
+    # Create two random ParameterVector objects
+    point = model
+    direction = model.__class__()
+
+    # Create a random scalar distance float
+    distance = torch.rand(1).item()
+
+    # Call the _shift method
+    shifted = Cartographer._shift(point, direction, distance)
+
+    # Assert that the shifted point is not the same object as the original point or direction
+    assert id(shifted) != id(point)
+    assert id(shifted) != id(direction)
+
+    # Assert that they do not have the same values
+    assert not point.equal(shifted)
+    assert not direction.equal(shifted)
+
+    # Compute the expected shifted point manually
+    expected_shifted = point + direction * distance
+
+    # Assert that the shifted point is equal to the expected shifted point
+    assert shifted.equal(expected_shifted)
+
+def test_measure_loss(model, dataloader, loss_function):
+    # Test that the loss measurement works as expected
+    # Create a random point and direction
+    pass
+
 # def test_location_generation(model, dataloader, loss_function):
 #     # Test that the location generation works as expected
 #     pass
