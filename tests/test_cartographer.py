@@ -33,7 +33,7 @@ def dataloader():
 def loss_function():
     return torch.nn.CrossEntropyLoss()
 
-def test_input_validation(model, dataloader, loss_function):
+def test_validate_inputs(model, dataloader, loss_function):
     # Test validation during __init__ 
     # Test that the Cartographer class validates the input arguments correctly
     with pytest.raises(ValueError):
@@ -47,6 +47,33 @@ def test_input_validation(model, dataloader, loss_function):
     with pytest.raises(ValueError):
         Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, pow_min_dist=3, pow_max_dist=1)
     
+    # TODO: These validation tests are not excellent. Improve or remove them.
+
+    # Test operational readiness of model
+    with pytest.raises(ValueError, match="Model does not support evaluation mode"):
+        class BrokenModel(nn.Module):
+            def eval(self):
+                raise AttributeError("Cannot set evaluation mode")
+        broken_model = BrokenModel()
+        Cartographer(model=broken_model, dataloader=dataloader, loss_function=loss_function)
+
+    # Test model and dataloader compatibility
+    with pytest.raises(ValueError, match="Model failed to process input from DataLoader"):
+        class IncompatibleModel(nn.Module):
+            def forward(self, x):
+                raise ValueError("Invalid input")
+        incompatible_model = IncompatibleModel()
+        Cartographer(model=incompatible_model, dataloader=dataloader, loss_function=loss_function)
+
+    # Test target and output compatibility with loss function
+    with pytest.raises(ValueError, match="Loss function cannot process model output"):
+        class OutputMismatchModel(nn.Module):
+            def forward(self, x):
+                return x + 1.  # Assuming non-compatible output
+        mismatch_model = OutputMismatchModel()
+        Cartographer(model=mismatch_model, dataloader=dataloader, loss_function=loss_function)
+
+
     # Test that the Cartographer class accepts the input arguments correctly
     cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
     assert cartographer.center is model

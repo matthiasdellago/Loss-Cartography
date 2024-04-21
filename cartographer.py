@@ -337,4 +337,26 @@ class Cartographer:
         if not pow_min_dist <= pow_max_dist:
             raise ValueError("'pow_min_dist' must be smaller equal 'pow_max_dist'")
 
-        #TODO: Add more validation for the model, dataloader and loss_function, to ensure they are compatible.
+        # Check for operational readiness of model and dataloader
+        try:
+            model.eval()  # Ensure model can be set to evaluation mode
+        except AttributeError as e:
+            raise ValueError(f"Model does not support evaluation mode: {str(e)}")
+
+        # Test DataLoader output
+        try:
+            sample_input, sample_target = next(iter(dataloader))
+        except TypeError as e:
+            raise ValueError(f"DataLoader is not iterable or does not produce outputs and targets: {str(e)}")
+
+        # Model output compatibility with loss function
+        try:
+            test_output = model(sample_input)
+        except Exception as e:
+            raise ValueError(f"Model failed to process input from DataLoader: {str(e)}")
+        
+        # Target and output compatibility with loss function
+        try:
+            loss_function(test_output, sample_target)
+        except Exception as e:
+            raise ValueError(f"Loss function cannot process model output: {str(e)}")
