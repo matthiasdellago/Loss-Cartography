@@ -154,9 +154,19 @@ def test_shift(model):
     assert shifted.equal(expected_shifted)
 
 def test_measure_loss(model, dataloader, loss_function):
-    # Test that the loss measurement works as expected
-    # Create a random point and direction
-    pass
+    """
+    Test to ensure that the loss measured by the _measure_loss method is deterministic
+    under the same conditions.
+    TODO: more tests? What else can we test here? Maybe train a model and make sure that the loss is lower than the initial loss..
+    """
+    # Measure the loss for the first run
+    loss_first_run = Cartographer._measure_loss(model, dataloader, loss_function)
+    
+    # Measure the loss for the second run
+    loss_second_run = Cartographer._measure_loss(model, dataloader, loss_function)
+    
+    # Check that the losses from the two runs are the same
+    assert loss_first_run == loss_second_run, f"Loss should be deterministic, but yielded {loss_first_run}, and {loss_second_run} for the same inputs."    
 
 # def test_location_generation(model, dataloader, loss_function):
 #     # Test that the location generation works as expected
