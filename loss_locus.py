@@ -69,6 +69,15 @@ class LossLocus():
         except Exception as e:
             raise ValueError("Model failed to process input from DataLoader. Error: {e}")
 
+        #  set the model to eval mode
+        self.loss_script.eval()
+
+    def to(self, device: torch.device) -> None:
+        """
+        Moves the model to the given device.
+        """
+        self.loss_script.to(device)
+
     def loss(self) -> float:
         """
         Measures the loss of the model on the entire dataset.
@@ -76,6 +85,10 @@ class LossLocus():
         total_loss = 0
         with torch.no_grad(): # TODO: remove this line when I figure out a better way to turn grads off globally
             for data, target in self.dataloader:
+                # load the data and target to the device
+                device = next(self.loss_script.parameters()).device
+                data, target = data.to(device), target.to(device)
+                
                 total_loss += self.loss_script(data,target).item()
         loss = total_loss / len(self.dataloader)
         return loss
