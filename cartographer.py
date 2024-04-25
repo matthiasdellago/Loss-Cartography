@@ -20,8 +20,7 @@ from torch import nn
 from torch import jit
 from torch.utils.data import DataLoader
 from torch.nn.modules.loss import _Loss
-from torch.nn import ModuleList, ModuleDict
-from parameter_vector import LossLocus # vector operations on nn.Module
+from loss_locus import LossLocus # vector operations on nn.Module
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,7 +47,7 @@ class Cartographer:
         - Identify inhomogeneities in the loss landscape. Tained models may differ in roughness, from random points.
 
     Attributes:
-        center (ParameterVector): The machine learning model to be analyzed.
+        center (LossLocus): The machine learning model to be analyzed.
         dataloader (DataLoader): The dataset used to compute the loss. For deterministic loss we iterate over the entire dataset. Make sure to use a small dataset.
         loss_function (_Loss): The loss function used to evaluate the model.
         directions (int): The number of random directions to be generated.
@@ -57,11 +56,12 @@ class Cartographer:
         scales (int): The number of scales to be used in the multi-scale analysis.
         device (torch.device): The device (CPU or GPU) used for the analysis.
         distances (array): The distances to step along the specified directions.
-        directions (ModuleList): The normalized directions in the parameter space.
+        directions (list): The normalized directions in the parameter space.
         profiles (array): The loss profiles measured along the specified directions.
         roughness (array): The roughness profiles measured along the specified directions.
 
-    TODO: Make sure the model is always in evaluation mode no_grad().
+    TODO: Make sure the model is always in evaluation mode no_grad() and on the correct device.
+    What is the right level of abstraction to do this on?
     TODO: Consider what parts are best done on what device and move data accordingly.
     TODO: Consider how to parallelize the computation of the loss profiles. JIT? TorchScript?
     TODO: Should I replace numpy arrays with torch tensors for everything that touches the GPU?
@@ -77,11 +77,15 @@ class Cartographer:
         pow_min_dist: int = -21,
         pow_max_dist: int = 3,
     ) -> None:
+        # Turn gradients off
+        torch.set_grad_enabled(False)
+
+        # Validate the inputs
         self._validate_inputs(model, dataloader, criterion, num_directions, pow_min_dist, pow_max_dist)
         self.model_class = model.__class__
-        self.center = model
+        self.center = LossLocus(model, criterion, dataloader)
         self.dataloader = dataloader
-        self.loss_function = criterion
+        self.criterion = criterion
         self.num_directions = num_directions
         self.pow_min_dist = pow_min_dist
         self.pow_max_dist = pow_max_dist
@@ -89,11 +93,6 @@ class Cartographer:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.center.to(self.device)
-        self.dataloader.to(self.device)
-        # Turn gradients off
-        torch.set_grad_enabled(False)
-        # set the model to evaluation mode
-        self.center.eval()
 
         self.distances = self.generate_distances()
         self.directions = self.generate_directions()
@@ -144,18 +143,20 @@ class Cartographer:
 
         return distances
             
-    def generate_directions(self) -> ModuleList:
+    def generate_directions(self) -> [LossLocus]:
         """
         Generates a set of random, normalised directions in the parameter space.
         TODO: Add the option to specify the directions, setting certain parameter groups to zero.
 
         Returns:
-            ModuleList: A ModuleList containing the nomralised direction vectors.
-            These vectors are model parameters.
+            [LossLocus]: A list containing the normalised direction vectors in locus objects.
                 Dimensions: (num_directions)
         """
-        # Create a ModuleList of length num_directions, with an instance of model_class for each entry
-        directions = ModuleList([self.model_class() for _ in range(self.num_directions)])
+        # Create a list of random models of the same class as the center model
+        rand_models = [self.model_class() for _ in range(self.num_directions)]
+
+        # turn that into a list of LossLocus objects
+        directions = [LossLocus(model, self.criterion, self.dataloader) for model in rand_models]
         
         # Normalize the directions
         for direction in directions:
@@ -176,20 +177,20 @@ class Cartographer:
         Designed for use with torch.jit.fork.
 
         Args:
-            point (ParameterVector): The starting point in parameter space.
-            direction (ParameterVector): The direction in which to move.
+            point (LossLocus): The starting point in parameter space.
+            direction (LossLocus): The direction in which to move.
             distance (float): The distance to move along the direction.
 
         Returns:
-            ParameterVector: The new point in parameter space.
+            LossLocus: The new point in parameter space.
         """
         # validate the inputs
         if not isinstance(point, LossLocus):
-            raise TypeError(f"Expected 'point' type ParameterVector, got {type(point)}")
+            raise TypeError(f"Expected 'point' type LossLocus, got {type(point)}")
         if not isinstance(distance, float):
             raise TypeError(f"Expected 'distance' type float, got {type(distance)}")
         if not isinstance(direction, LossLocus):
-            raise TypeError(f"Expected 'direction' type ParameterVector, got {type(direction)}")
+            raise TypeError(f"Expected 'direction' type LossLocus, got {type(direction)}")
         # Use not in place multiplication to multiply the direction by the distance, and create a new ParameterVector in the process.
         shift = direction * distance
         # Use in place addition to add the shift to the point, without creating a new object.
@@ -197,6 +198,32 @@ class Cartographer:
 
         return shift
 
+    def measure_profiles_serial(self) -> None:
+        """
+        Measures the loss profiles for all distances and directions, as well as the center.
+        Uses the _shift to generate the locations in parameter space.
+
+        Writes results directly to class attribute self.profiles.
+        Don't use this method if you have a GPU available, it will be slow.
+        Uses LossLocus.loss() to compute the loss at each location, which goes through the entire dataloader.
+        Obviously inefficient.
+        """
+
+        # loop over all distances and directions
+        for i_dist in range(self.num_scales):
+            for i_dir in range(self.num_directions):
+                # debug print
+                print(f"Measuring profile at distance {self.distances[i_dist][i_dir]} in direction {i_dir}")
+                # create a new model by shifting the center in the specified direction by the specified distance
+                location = self._shift(self.center, self.directions[i_dir], self.distances[i_dist][i_dir])
+                location.to(self.device)
+                # compute the loss for the model
+                self.profiles[i_dist+1, i_dir] = location.loss()
+
+        # fill the profiles[0][:] with the loss at the center.
+        self.center.to(self.device)
+        self.profiles[0, :] = self.center.loss()
+    
     def measure_profiles(self) -> array:
         """
         Measures the loss profiles for all distances and directions, as well as the center
@@ -227,7 +254,7 @@ class Cartographer:
         stack.append((-1, 0))
 
         # Now we will load as many models as possible into GPU memory as possible.
-        gpu_batch = ModuleDict()
+        gpu_batch = {}
 
         # while the stack is not empty
         while stack:
@@ -253,7 +280,7 @@ class Cartographer:
             except RuntimeError as e:
                 self.parallel_evaluate(gpu_batch)
         
-        # After the loop, we will have some models left in the model_batch that we need to evaluate.
+        # After the loop, we will have some models left in the locus_batch that we need to evaluate.
         self.parallel_evaluate(gpu_batch)
 
         # profiles now contains the loss profiles for all directions and distances, and the center at (0,0)
@@ -265,147 +292,56 @@ class Cartographer:
 
         return self.profiles
 
-    @staticmethod
-    def parallel_evaluate(model_batch: ModuleDict(), dataloader: DataLoader, results: array) -> array:
+    def parallel_evaluate(locus_batch: {(int,int): LossLocus}, results: array) -> None:
         """
         Evaluates the loss for a batch of models in parallel.
         Uses torch.jit.fork to parallelize the computation of the loss profiles.
-        Uses the _measure_loss to compute the loss at each location.
+        Caches the results in the results array.        
 
         Args:
-            model_batch (ModuleDict): {(int,int): nn.Module}
-                                    A dict of models to evaluate. The keys are tuples of indices (i_dist, i_dir).
+            locus_batch {(int,int): LossLocus}): A dict of models to evaluate. The keys are tuples of indices (i_dist, i_dir).
             dataloader (DataLoader): The dataset to evaluate the models on.
             results (array): The array to store the results in. The loss is stored at result[i_dist+1, i_dir].
-
-        Returns:
-            array: The results array, filled with the losses.
         """
 
         # validation
-        if not isinstance(model_batch, ModuleDict):
-            raise TypeError(f"Expected 'model_batch' type ModuleDict, got {type(model_batch)}")
-        if not all(isinstance(model, nn.Module) for model in model_batch.values()):
-            raise TypeError(f"Expected all values in 'model_batch' to be of type nn.Module")
-        if not all(isinstance(indices, tuple) and len(indices) == 2 for indices in model_batch.keys()):
-            raise TypeError(f"Expected all keys in 'model_batch' to be tuples of length 2")
+        if not isinstance(locus_batch, dict):
+            raise TypeError(f"Expected 'locus_batch' to be type dict, got {type(locus_batch)}")
+        if not all(isinstance(model, LossLocus) for model in locus_batch.values()):
+            raise TypeError(f"Expected all values in 'locus_batch' to be of type LossLocus")
+        if not all(isinstance(indices, tuple) and len(indices) == 2 for indices in locus_batch.keys()):
+            raise TypeError(f"Expected all keys in 'locus_batch' to be tuples of length 2")
         if not isinstance(results, array):
             raise TypeError(f"Expected 'results' type array, got {type(results)}")
         if not isinstance(dataloader, DataLoader):
             raise TypeError(f"Expected 'dataloader' type DataLoader, got {type(dataloader)}")
 
         # Out of bounds check
-        for i_dist, i_dir in model_batch.keys():
+        for i_dist, i_dir in locus_batch.keys():
             if not (0 <= i_dist + 1 < num_dists and 0 <= i_dir < num_dirs):
                 raise IndexError(f"Indices ({i_dist+1}, {i_dir}) are out of bounds for the results array")
         
+        # TODO: is this the best place to do this?
+        for locus in locus_batch.values():
+            locus.to(self.device)
+
         # loop over dataloader
         for data, target in dataloader:
+            # move the data and target to the device
+            data.to(self.device)
+            target.to(self.device)
             # compute the loss for the models we have loaded with jit.fork
             # create a dict of futures
-            future_outputs = {indices: torch.jit.fork(model, data)
-                        for indices, model in model_batch.items()}
-            # feed the results to the loss function
-            # maybe sketchy: feeding wait() results directly into a new fork
-            # future_losses = {indices: torch.jit.fork(self.loss_function, future_output.wait(), target)
-            #             for indices, future_output in future_outputs.items()}
-            # simpler version that doesn't use jit.fork.
-            # TODO: test if the above version is faster and works. Or make a module that contains the loss function, then we only need one fork.
-            future_losses = {indices: self.loss_function(future_output.wait(), target)
-                        for indices, future_output in future_outputs.items()}
-
+            futures = {indices: torch.jit.fork(locus.loss_script, data, target)
+                        for indices, locus in locus_batch.items()}
             # wait for the futures to complete
-            for indeces, future_loss in future_losses.items():
-                i_dist, i_dir = indeces
-                loss = future_loss #.wait()
+            for indices, future in futures.items():
+                i_dist, i_dir = indices
+                loss = future_loss.wait()
                 self.profiles[i_dist+1, i_dir] += loss.item() # the +1 is because the first entry is the center.
 
-        # clear the model_batch, TODO: does this clear the GPU memory?
-        model_batch.clear()
-        model_batch = ModuleDict()
-
-    # @jit.script
-    # def _measure_loss(
-    #     model,
-    #     dataloader: DataLoader,
-    #     loss_function: _Loss,
-    # ) -> float:
-    #     """
-    #     Measures the loss of a model on a dataset using a given loss function.
-    #     Static method to make it a pure function.
-    #     Designed for use with torch.jit.fork.
-
-    #     Warning:Iterates over the entire dataset to ensure deterministic loss.
-    #     Choose an appropriately small dataset to avoid long computation times.
-        
-    #     Args:
-    #         model (nn.Module): The model to evaluate.
-    #         dataloader (Da    # @jit.script
-    # def _measure_loss(
-    #     model,
-    #     dataloader: DataLoader,
-    #     loss_function: _Loss,
-    # ) -> float:
-    #     """
-    #     Measures the loss of a model on a dataset using a given loss function.
-    #     Static method to make it a pure function.
-    #     Designed for use with torch.jit.fork.
-
-    #     Warning:Iterates over the entire dataset to ensure deterministic loss.
-    #     Choose an appropriately small dataset to avoid long computation times.
-        
-    #     Args:
-    #         model (nn.Module): The model to evaluate.
-    #         dataloader (DataLoader): The dataset to evaluate the model on.
-    #         loss_function (_Loss): The loss function to use.
-
-    #     Returns:
-    #         float: The loss of the model on the dataset.
-    #     """
-    #     # Validate the inputs
-    #     if not isinstance(model, ParameterVector):
-    #         raise TypeError(f"Expected 'model' type ParameterVector, got {type(model)}")
-    #     if not isinstance(dataloader, DataLoader):
-    #         raise TypeError(f"Expected 'dataloader' type DataLoader, got {type(dataloader)}")
-    #     if not isinstance(loss_function, _Loss):
-    #         raise TypeError(f"Expected 'loss_function' type _Loss, got {type(loss_function)}")
-
-    #     # Set the model to evaluation mode and disable gradient tracking
-    #     # Initialize the total loss to zero
-    #     total_loss = 0.0
-    #     # Iterate over the dataset
-    #     for data, target in dataloader:
-    #         # Forward pass
-    #         output = model(data)
-    #         # Compute the loss
-    #         loss = loss_function(output, target)
-    #         # Add the loss to the total
-    #         total_loss += loss.item()
-        
-    #     return total_loss
-    
-    #     # Validate the inputs
-    #     if not isinstance(model, ParameterVector):
-    #         raise TypeError(f"Expected 'model' type ParameterVector, got {type(model)}")
-    #     if not isinstance(dataloader, DataLoader):
-    #         raise TypeError(f"Expected 'dataloader' type DataLoader, got {type(dataloader)}")
-    #     if not isinstance(loss_function, _Loss):
-    #         raise TypeError(f"Expected 'loss_function' type _Loss, got {type(loss_function)}")
-
-    #     # Set the model to evaluation mode and disable gradient tracking
-    #     # Initialize the total loss to zero
-    #     total_loss = 0.0
-    #     # Iterate over the dataset
-    #     for data, target in dataloader:
-    #         # Forward pass
-    #         output = model(data)
-    #         # Compute the loss
-    #         loss = loss_function(output, target)
-    #         # Add the loss to the total
-    #         total_loss += loss.item()
-        
-    #     return total_loss
-    
+        # TODO: clear the batch from the GPU
+        return results
 
     def measure_roughness(self) -> array:
         """

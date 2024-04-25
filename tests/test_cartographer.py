@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch import nn
 from torchvision.datasets import MNIST
 from torchvision import transforms
+from loss_locus import LossLocus
 from cartographer import Cartographer
 from simple_cnn import SimpleCNN
 import numpy as np
@@ -37,25 +38,17 @@ def test_validate_inputs(model, dataloader, criterion):
     # Test validation during __init__ 
     # Test that the Cartographer class validates the input arguments correctly
     with pytest.raises(TypeError):
-        Cartographer(model=None, dataloader=dataloader, loss_function=criterion)
+        Cartographer(model=None, dataloader=dataloader, criterion=criterion)
     with pytest.raises(TypeError):
-        Cartographer(model=model, dataloader=None, loss_function=criterion)
+        Cartographer(model=model, dataloader=None, criterion=criterion)
     with pytest.raises(TypeError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=None)
+        Cartographer(model=model, dataloader=dataloader, criterion=None)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=criterion, num_directions=-1)
+        Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=-1)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=criterion, pow_min_dist=3, pow_max_dist=1)
+        Cartographer(model=model, dataloader=dataloader, criterion=criterion, pow_min_dist=3, pow_max_dist=1)
     
     # TODO: These validation tests are not excellent. Improve or remove them.
-
-    # Test operational readiness of model
-    with pytest.raises(ValueError, match="Model does not support evaluation mode"):
-        class BrokenModel(nn.Module):
-            def eval(self):
-                raise AttributeError("Cannot set evaluation mode")
-        broken_model = BrokenModel()
-        Cartographer(model=broken_model, dataloader=dataloader, loss_function=criterion)
 
     # Test model and dataloader compatibility
     with pytest.raises(ValueError, match="Model failed to process input from DataLoader"):
@@ -63,7 +56,7 @@ def test_validate_inputs(model, dataloader, criterion):
             def forward(self, x):
                 raise ValueError("Invalid input")
         incompatible_model = IncompatibleModel()
-        Cartographer(model=incompatible_model, dataloader=dataloader, loss_function=criterion)
+        Cartographer(model=incompatible_model, dataloader=dataloader, criterion=criterion)
 
     # Test target and output compatibility with loss function
     with pytest.raises(ValueError, match="Loss function cannot process model output"):
@@ -71,29 +64,29 @@ def test_validate_inputs(model, dataloader, criterion):
             def forward(self, x):
                 return x + 1.  # Assuming non-compatible output
         mismatch_model = OutputMismatchModel()
-        Cartographer(model=mismatch_model, dataloader=dataloader, loss_function=criterion)
+        Cartographer(model=mismatch_model, dataloader=dataloader, criterion=criterion)
 
 
     # Test that the Cartographer class accepts the input arguments correctly
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=criterion)
-    assert cartographer.center is model
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion)
+    assert cartographer.model_class is model.__class__
     assert cartographer.dataloader is dataloader
-    assert cartographer.loss_function is criterion
+    assert cartographer.criterion is criterion
 
-def test_distance_generation_1(model, dataloader, loss_function):
+def test_distance_generation_1(model, dataloader, criterion):
     # Test that the distance generation works as expected
     # If num_directions is 1 and pow_min_dist and pow_max_dist are 0, the distances should be of shape (1, 1) and contain only 1.0
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=1, pow_min_dist=0, pow_max_dist=0)
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=1, pow_min_dist=0, pow_max_dist=0)
     distances = cartographer.generate_distances()
 
     assert isinstance(distances, np.ndarray), f"Expected type numpy.ndarray, but got {type(distances)}"
     assert distances.shape == (1, 1), f"Unexpected shape: {distances.shape}, expected (1, 1)"
     assert np.isclose(distances[0,0], 1.0), f"Unexpected value at (0,0): {distances[0,0]}, expected 1.0"
 
-def test_distance_generation_manual(model, dataloader, loss_function):
+def test_distance_generation_manual(model, dataloader, criterion):
     # Test that the distance generation works as expected
     # Caclculate distances by hand for num_directions=2, pow_min_dist=0 and pow_max_dist = 2
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=2, pow_min_dist=0, pow_max_dist=2)
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=2)
     distances = cartographer.generate_distances()
 
     # Hand calculated distances
@@ -107,14 +100,14 @@ def test_distance_generation_manual(model, dataloader, loss_function):
     assert distances.shape == (3, 2), f"Unexpected shape: {distances.shape}, expected (3, 2)"
     assert np.allclose(distances, manual_distances), f"Unexpected values:\n{distances}\nExpected:\n{manual_distances}"
 
-def test_direction_generation(model, dataloader, loss_function):
+def test_direction_generation(model, dataloader, criterion):
     num = 7
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=num)
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=num)
     directions = cartographer.generate_directions()
     
-    assert isinstance(directions, nn.ModuleList), f"Expected type nn.ModuleList, but got {type(directions)}"
-    # check that all objects in the ModuleList are of the same type as model
-    assert all(isinstance(direction, type(model)) for direction in directions), f"Expected all directions to be of type {type(model)}, but got {set(type(direction) for direction in directions)}"
+    assert isinstance(directions, list), f"Expected type nn.ModuleList, but got {type(directions)}"
+    # check that all objects in the list are LossLoci
+    assert all(isinstance(direction, LossLocus) for direction in directions), f"Expected all directions to be of type {type(model)}, but got {set(type(direction) for direction in directions)}"
     # check that the number of directions is as expected
     assert len(directions) == num, f"Expected {num} directions, but got {len(directions)}"
     # check that the directions are normalized
@@ -128,10 +121,10 @@ def test_direction_generation(model, dataloader, loss_function):
             dot_product = torch.dot(params_i, params_j)
             assert torch.abs(dot_product) < 1e-1, f'Expected dot product to be close to zero, but got {dot_product}'
 
-def test_shift(model):
-    # Create two random ParameterVector objects
-    point = model
-    direction = model.__class__()
+def test_shift(model, dataloader, criterion):
+    # Create two random models
+    point = LossLocus(model, criterion, dataloader)
+    direction = LossLocus(model.__class__(), criterion, dataloader)
 
     # Create a random scalar distance float
     distance = torch.rand(1).item()
@@ -153,26 +146,39 @@ def test_shift(model):
     # Assert that the shifted point is equal to the expected shifted point
     assert shifted.equal(expected_shifted)
 
-def test_measure_loss(model, dataloader, loss_function):
+def test_measure_profiles_serial(model, dataloader, criterion):
+    # Setup: Create a Cartographer object
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
+    
+    # Execute: Measure the profiles serially
+    cartographer.measure_profiles_serial()
+    
+    # Verify: Check that there are no NaN values in the profiles np.array
+    assert not np.isnan(cartographer.profiles).any(), "Profiles should not contain NaN values."
+
+    # all values in profiles[0, :] correspond to the center locus (i.e. the model), so they should be the same
+    assert np.allclose(cartographer.profiles[0, :], cartographer.profiles[0, 0]), "All values in the first row should be the same."
+    
+def test_measure_loss(model, dataloader, criterion):
     """
     Test to ensure that the loss measured by the _measure_loss method is deterministic
     under the same conditions.
     TODO: more tests? What else can we test here? Maybe train a model and make sure that the loss is lower than the initial loss..
     """
     # Measure the loss for the first run
-    loss_first_run = Cartographer._measure_loss(model, dataloader, loss_function)
+    loss_first_run = Cartographer._measure_loss(model, dataloader, criterion)
     
     # Measure the loss for the second run
-    loss_second_run = Cartographer._measure_loss(model, dataloader, loss_function)
+    loss_second_run = Cartographer._measure_loss(model, dataloader, criterion)
     
     # Check that the losses from the two runs are the same
     assert loss_first_run == loss_second_run, f"Loss should be deterministic, but yielded {loss_first_run}, and {loss_second_run} for the same inputs."    
 
-def test_parallel_evaluate(model, dataloader, loss_function):
+def test_parallel_evaluate(model, dataloader, criterion):
     # Setup: Create a small batch of models
     num_test_models = 3
-    test_models = ModuleList([model for _ in range(num_test_models)])
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
+    test_models = [model for _ in range(num_test_models)]
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion)
     
     # Execute: Call parallel_evaluate
     cartographer.parallel_evaluate(test_models)
@@ -180,23 +186,22 @@ def test_parallel_evaluate(model, dataloader, loss_function):
     # Verify: Check outputs for correctness
     assert len(cartographer.profiles) == num_test_models, "Profiles should be generated for all models."
 
-
-# def test_location_generation(model, dataloader, loss_function):
+# def test_location_generation(model, dataloader, criterion):
 #     # Test that the location generation works as expected
 #     pass
 
-# def test_loss_measurement(model, dataloader, loss_function):
+# def test_loss_measurement(model, dataloader, criterion):
 #     # Test that the loss measurement works as expected
 #     pass
 
-# def test_roughness_measurement(model, dataloader, loss_function):
+# def test_roughness_measurement(model, dataloader, criterion):
 #     # Test that the roughness measurement works as expected
 #     pass
 
-# def test_full_workflow(model, dataloader, loss_function):
+# def test_full_workflow(model, dataloader, criterion):
 #     # Test the full Cartographer workflow
 #     pass
 
-# def test_plot_generation(model, dataloader, loss_function):
+# def test_plot_generation(model, dataloader, criterion):
 #     # Test that the plot generation works as expected
 #     pass
