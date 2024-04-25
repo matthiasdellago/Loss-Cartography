@@ -30,22 +30,22 @@ def dataloader():
     return DataLoader(dataset, batch_size=64, shuffle=False)
 
 @pytest.fixture
-def loss_function():
+def criterion():
     return torch.nn.CrossEntropyLoss()
 
-def test_validate_inputs(model, dataloader, loss_function):
+def test_validate_inputs(model, dataloader, criterion):
     # Test validation during __init__ 
     # Test that the Cartographer class validates the input arguments correctly
-    with pytest.raises(ValueError):
-        Cartographer(model=None, dataloader=dataloader, loss_function=loss_function)
-    with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=None, loss_function=loss_function)
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
+        Cartographer(model=None, dataloader=dataloader, loss_function=criterion)
+    with pytest.raises(TypeError):
+        Cartographer(model=model, dataloader=None, loss_function=criterion)
+    with pytest.raises(TypeError):
         Cartographer(model=model, dataloader=dataloader, loss_function=None)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, num_directions=-1)
+        Cartographer(model=model, dataloader=dataloader, loss_function=criterion, num_directions=-1)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataloader=dataloader, loss_function=loss_function, pow_min_dist=3, pow_max_dist=1)
+        Cartographer(model=model, dataloader=dataloader, loss_function=criterion, pow_min_dist=3, pow_max_dist=1)
     
     # TODO: These validation tests are not excellent. Improve or remove them.
 
@@ -55,7 +55,7 @@ def test_validate_inputs(model, dataloader, loss_function):
             def eval(self):
                 raise AttributeError("Cannot set evaluation mode")
         broken_model = BrokenModel()
-        Cartographer(model=broken_model, dataloader=dataloader, loss_function=loss_function)
+        Cartographer(model=broken_model, dataloader=dataloader, loss_function=criterion)
 
     # Test model and dataloader compatibility
     with pytest.raises(ValueError, match="Model failed to process input from DataLoader"):
@@ -63,7 +63,7 @@ def test_validate_inputs(model, dataloader, loss_function):
             def forward(self, x):
                 raise ValueError("Invalid input")
         incompatible_model = IncompatibleModel()
-        Cartographer(model=incompatible_model, dataloader=dataloader, loss_function=loss_function)
+        Cartographer(model=incompatible_model, dataloader=dataloader, loss_function=criterion)
 
     # Test target and output compatibility with loss function
     with pytest.raises(ValueError, match="Loss function cannot process model output"):
@@ -71,14 +71,14 @@ def test_validate_inputs(model, dataloader, loss_function):
             def forward(self, x):
                 return x + 1.  # Assuming non-compatible output
         mismatch_model = OutputMismatchModel()
-        Cartographer(model=mismatch_model, dataloader=dataloader, loss_function=loss_function)
+        Cartographer(model=mismatch_model, dataloader=dataloader, loss_function=criterion)
 
 
     # Test that the Cartographer class accepts the input arguments correctly
-    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
+    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=criterion)
     assert cartographer.center is model
     assert cartographer.dataloader is dataloader
-    assert cartographer.loss_function is loss_function
+    assert cartographer.loss_function is criterion
 
 def test_distance_generation_1(model, dataloader, loss_function):
     # Test that the distance generation works as expected
@@ -167,6 +167,19 @@ def test_measure_loss(model, dataloader, loss_function):
     
     # Check that the losses from the two runs are the same
     assert loss_first_run == loss_second_run, f"Loss should be deterministic, but yielded {loss_first_run}, and {loss_second_run} for the same inputs."    
+
+def test_parallel_evaluate(model, dataloader, loss_function):
+    # Setup: Create a small batch of models
+    num_test_models = 3
+    test_models = ModuleList([model for _ in range(num_test_models)])
+    cartographer = Cartographer(model=model, dataloader=dataloader, loss_function=loss_function)
+    
+    # Execute: Call parallel_evaluate
+    cartographer.parallel_evaluate(test_models)
+    
+    # Verify: Check outputs for correctness
+    assert len(cartographer.profiles) == num_test_models, "Profiles should be generated for all models."
+
 
 # def test_location_generation(model, dataloader, loss_function):
 #     # Test that the location generation works as expected

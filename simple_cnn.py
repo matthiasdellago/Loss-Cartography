@@ -9,9 +9,8 @@ CNN is a ParameterVector for easy manipulation of the model's parameters.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from parameter_vector import ParameterVector
 
-class SimpleCNN(ParameterVector):
+class SimpleCNN(nn.Module):
     """
     A simple convolutional neural network for classifying MNIST digits.
     ParameterVector: Supports vector operations on the model's parameters.
