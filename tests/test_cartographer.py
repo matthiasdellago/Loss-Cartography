@@ -158,41 +158,40 @@ def test_measure_profiles_serial(model, dataloader, criterion):
 
     # all values in profiles[0, :] correspond to the center locus (i.e. the model), so they should be the same
     assert np.allclose(cartographer.profiles[0, :], cartographer.profiles[0, 0]), "All values in the first row should be the same."
-    
-def test_measure_loss(model, dataloader, criterion):
-    """
-    Test to ensure that the loss measured by the _measure_loss method is deterministic
-    under the same conditions.
-    TODO: more tests? What else can we test here? Maybe train a model and make sure that the loss is lower than the initial loss..
-    """
-    # Measure the loss for the first run
-    loss_first_run = Cartographer._measure_loss(model, dataloader, criterion)
-    
-    # Measure the loss for the second run
-    loss_second_run = Cartographer._measure_loss(model, dataloader, criterion)
-    
-    # Check that the losses from the two runs are the same
-    assert loss_first_run == loss_second_run, f"Loss should be deterministic, but yielded {loss_first_run}, and {loss_second_run} for the same inputs."    
 
-def test_parallel_evaluate(model, dataloader, criterion):
-    # Setup: Create a small batch of models
-    num_test_models = 3
-    test_models = [model for _ in range(num_test_models)]
-    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion)
+def test_measure_profiles_parallel(model, dataloader, criterion):
+    # Setup: Create a Cartographer object
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
     
-    # Execute: Call parallel_evaluate
-    cartographer.parallel_evaluate(test_models)
+    # Execute: Measure the profiles in parallel
+    cartographer.measure_profiles_parallel()
     
-    # Verify: Check outputs for correctness
-    assert len(cartographer.profiles) == num_test_models, "Profiles should be generated for all models."
+    # Verify: Check that there are no NaN values in the profiles np.array
+    assert not np.isnan(cartographer.profiles).any(), "Profiles should not contain NaN values."
 
-# def test_location_generation(model, dataloader, criterion):
-#     # Test that the location generation works as expected
-#     pass
+    # all values in profiles[0, :] correspond to the center locus (i.e. the model), so they should be the same
+    assert np.allclose(cartographer.profiles[0, :], cartographer.profiles[0, 0]), "All values in the first row should be the same."
 
-# def test_loss_measurement(model, dataloader, criterion):
-#     # Test that the loss measurement works as expected
-#     pass
+def test_parallel_vs_serial(model, dataloader, criterion):
+    # Setup: Create a Cartographer object
+    cartographer = Cartographer(model=model, dataloader=dataloader, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
+    
+    # Execute: Measure the profiles serially
+    cartographer.measure_profiles_serial()
+    profiles_serial = cartographer.profiles.copy()
+
+    # reset all values in the profiles array to np.non
+    cartographer.profiles.fill(np.nan)
+    
+    # Execute: Measure the profiles in parallel
+    cartographer.measure_profiles_parallel()
+    profiles_parallel = cartographer.profiles.copy()
+    
+    # Verify: Check that the profiles are not the same object
+    assert id(profiles_serial) != id(profiles_parallel), "Profiles should not be the same object."
+
+    # Verify: Check that the profiles are the same
+    assert np.allclose(profiles_serial, profiles_parallel), "Profiles should be the same when measured serially and in parallel."
 
 # def test_roughness_measurement(model, dataloader, criterion):
 #     # Test that the roughness measurement works as expected

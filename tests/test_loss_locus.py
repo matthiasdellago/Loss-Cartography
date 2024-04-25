@@ -64,7 +64,15 @@ def test_initialization(criterion, dataloader):
     with pytest.raises(ValueError):
         _ = LossLocus(nn.Linear(10,10), criterion, dataloader)
 
+def test_loss_script(criterion, dataloader):
+    A = LossLocus(SimpleCNN(), criterion, dataloader)
+    assert isinstance(A.loss_script, jit.ScriptModule), "loss_script is not an instance of jit.ScriptModule."
 
+    # Test if the loss_script is callable
+    for data, target in dataloader:
+        _ = A.loss_script(data, target)
+        break
+    
 def test_loss(criterion, dataloader):
     model = SimpleCNN()
     A = LossLocus(model, criterion, dataloader)

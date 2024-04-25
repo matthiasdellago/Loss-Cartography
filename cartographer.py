@@ -20,6 +20,7 @@ from torch import nn
 from torch import jit
 from torch.utils.data import DataLoader
 from torch.nn.modules.loss import _Loss
+from torch.nn import ModuleDict
 from loss_locus import LossLocus # vector operations on nn.Module
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -60,7 +61,7 @@ class Cartographer:
         profiles (array): The loss profiles measured along the specified directions.
         roughness (array): The roughness profiles measured along the specified directions.
 
-    TODO: Make sure the model is always in evaluation mode no_grad() and on the correct device.
+    TODO: Make sure the model is always in evaluation mode, @torch.no_grad() and on the correct device.
     What is the right level of abstraction to do this on?
     TODO: Consider what parts are best done on what device and move data accordingly.
     TODO: Consider how to parallelize the computation of the loss profiles. JIT? TorchScript?
@@ -98,8 +99,8 @@ class Cartographer:
         self.directions = self.generate_directions()
 
         # init the profiles and roughness arrays, filled with NaNs
-        self.profiles = np.full((self.num_scales + 1, self.num_directions), float('nan'))
-        self.roughness = np.full((self.num_scales - 1, self.num_directions), float('nan'))
+        self.profiles = np.full((self.num_scales + 1, self.num_directions), np.nan)
+        self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
     def __call__(self) -> None:
         """
@@ -157,6 +158,10 @@ class Cartographer:
 
         # turn that into a list of LossLocus objects
         directions = [LossLocus(model, self.criterion, self.dataloader) for model in rand_models]
+
+        # load the models to the device
+        for direction in directions:
+            direction.to(self.device)
         
         # Normalize the directions
         for direction in directions:
@@ -224,7 +229,7 @@ class Cartographer:
         self.center.to(self.device)
         self.profiles[0, :] = self.center.loss()
     
-    def measure_profiles(self) -> array:
+    def measure_profiles_parallel(self) -> None:
         """
         Measures the loss profiles for all distances and directions, as well as the center
         Uses torch.jit.fork to parallelize the computation of the loss profiles.
@@ -236,21 +241,15 @@ class Cartographer:
         Writes results directly to class attribute self.profiles.
 
         TODO: Add evaluation of the center to the profiles.
-
-        Returns:
-            array: loss profiles at each scale, in each direction.
-                Dimensions: (num_scales+1, num_directions)
         """
-
-        # move the models to the device
-        self.center.to(self.device)
-        self.directions.to(self.device)
 
         # create a stack of tuples indexing all directions and distances
         # We will iterate over this stack to load models into GPU memory.
-        stack = [(i_dist, i_dir) for i_dir in range(num_directions) for i_dist in range(num_scales)]
+        stack = [(i_dist, i_dir) 
+                for i_dir in range(self.num_directions)
+                for i_dist in range(self.num_scales)]
 
-        # add an entry for the center, 
+        # add an entry for the center, we will catch the -1 later.
         stack.append((-1, 0))
 
         # Now we will load as many models as possible into GPU memory as possible.
@@ -264,14 +263,14 @@ class Cartographer:
                 i_dist, i_dir = stack[-1]
                 if i_dist == -1:
                     # if we are at the center, we don't need to shift it.
-                    model = self.center
+                    locus = self.center
                 else:
                     # create a new model by shifting the center in the specified direction by the specified distance
-                    model = self._shift(self.center, self.directions[i_dir], self.distances[i_dist][i_dir])
+                    locus = self._shift(self.center, self.directions[i_dir], self.distances[i_dist][i_dir])
                 # move the model to the device
-                model.to(self.device) # TODO: is this necessary? or was the model already on the device because it was created from the center?
+                locus.to(self.device) # TODO: is this necessary? or was the model already on the device because it was created from the center?
                 # add the model to the gpu_batch
-                gpu_batch[(i_dist, i_dir)] = model
+                gpu_batch[(i_dist, i_dir)] = locus
                 # if this pop the direction and distance from the stack
                 stack.pop()
 
@@ -290,43 +289,48 @@ class Cartographer:
         # normalize the profiles, by dividing by the number of samples in the dataloader.
         self.profiles /= len(self.dataloader)
 
-        return self.profiles
-
-    def parallel_evaluate(locus_batch: {(int,int): LossLocus}, results: array) -> None:
+    def parallel_evaluate(self,locus_batch: {(int,int) : LossLocus}) -> None:
         """
         Evaluates the loss for a batch of models in parallel.
         Uses torch.jit.fork to parallelize the computation of the loss profiles.
-        Caches the results in the results array.        
+        Stores the results in the profiles array.
 
         Args:
-            locus_batch {(int,int): LossLocus}): A dict of models to evaluate. The keys are tuples of indices (i_dist, i_dir).
-            dataloader (DataLoader): The dataset to evaluate the models on.
-            results (array): The array to store the results in. The loss is stored at result[i_dist+1, i_dir].
+            locus_batch {(int,int): jit.ScriptModule}: A dict of models to evaluate. The keys are tuples of indices (i_dist, i_dir).
         """
+        print(f"Evaluating batch of models. {locus_batch}")
 
         # validation
         if not isinstance(locus_batch, dict):
             raise TypeError(f"Expected 'locus_batch' to be type dict, got {type(locus_batch)}")
         if not all(isinstance(model, LossLocus) for model in locus_batch.values()):
             raise TypeError(f"Expected all values in 'locus_batch' to be of type LossLocus")
+        if not all(isinstance(model.loss_script, jit.ScriptModule) for model in locus_batch.values()):
+            raise TypeError(f"Expected all values in 'locus_batch' to be of type jit.ScriptModule")
         if not all(isinstance(indices, tuple) and len(indices) == 2 for indices in locus_batch.keys()):
             raise TypeError(f"Expected all keys in 'locus_batch' to be tuples of length 2")
-        if not isinstance(results, array):
-            raise TypeError(f"Expected 'results' type array, got {type(results)}")
-        if not isinstance(dataloader, DataLoader):
-            raise TypeError(f"Expected 'dataloader' type DataLoader, got {type(dataloader)}")
 
         # Out of bounds check
         for i_dist, i_dir in locus_batch.keys():
-            if not (0 <= i_dist + 1 < num_dists and 0 <= i_dir < num_dirs):
-                raise IndexError(f"Indices ({i_dist+1}, {i_dir}) are out of bounds for the results array")
-        
-        # TODO: is this the best place to do this?
+            if not i_dist in range(-1,self.num_scales):
+                raise ValueError(f"Expected -1 <= i_dist <= {self.num_scales-1}, got i_dist={i_dist}.")
+            if not i_dir in range(self.num_directions):
+                raise ValueError(f"Expected 0 <= i_dir <= {self.num_directions-1}, got i_dir={i_dir}.")
+
+        # TODO: is this the best place to do this? redundant?
         for locus in locus_batch.values():
             locus.to(self.device)
 
+        # set the values of the profiles array to zero
+        # so that we can accumulate the loss values in them.
+        for indices in locus_batch.keys():
+            i_dist, i_dir = indices
+            if not np.isnan(self.profiles[i_dist+1, i_dir]):
+                raise ValueError(f"Expected profiles[{i_dist+1}, {i_dir}] to be np.isnan(), got {self.profiles[i_dist+1, i_dir]}")
+            self.profiles[i_dist+1, i_dir] = 0.0
+
         # loop over dataloader
-        for data, target in dataloader:
+        for data, target in self.dataloader:
             # move the data and target to the device
             data.to(self.device)
             target.to(self.device)
@@ -337,11 +341,17 @@ class Cartographer:
             # wait for the futures to complete
             for indices, future in futures.items():
                 i_dist, i_dir = indices
-                loss = future_loss.wait()
+                loss = future.wait()
+                print(f"Loss at distance {self.distances[i_dist][i_dir]} in direction {i_dir} is {loss}")
                 self.profiles[i_dist+1, i_dir] += loss.item() # the +1 is because the first entry is the center.
 
-        # TODO: clear the batch from the GPU
-        return results
+        print(f"New profiles: {self.profiles}")
+
+        # free GPU memory by clearing the locus_batch
+        locus_batch.clear()
+
+        # tell cuda to free memory
+        torch.cuda.empty_cache()
 
     def measure_roughness(self) -> array:
         """
