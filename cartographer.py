@@ -26,6 +26,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import array
+from warnings import warn
 
 class Cartographer:
     """
@@ -80,7 +81,13 @@ class Cartographer:
     ) -> None:
         # Turn gradients off
         torch.set_grad_enabled(False)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Check if a GPU is available
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+            warn("No GPU available. Running on CPU.")
 
         # Validate the inputs
         self._validate_inputs(model, dataset, criterion, num_directions, pow_min_dist, pow_max_dist)
@@ -104,21 +111,23 @@ class Cartographer:
         self.profiles = np.full((self.num_scales + 1, self.num_directions), np.nan)
         #self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
-    # def __call__(self) -> None:
-    #     """
-    #     Generates the locations in parameter space at which the loss
-    #     will be measured, computes the loss profiles and roughness for each scale, and
-    #     stores the results in the class attributes `profiles` and `roughness`.
-    #     """
-    #     self.locations = self.generate_locations()
-    #     self.profiles = self.measure_loss()
-    #     self.roughness = self.measure_roughness()
+# def __call__(self) -> None:
+#     """
+#     Generates the locations in parameter space at which the loss
+#     will be measured, computes the loss profiles and roughness for each scale, and
+#     stores the results in the class attributes `profiles` and `roughness`.
+#     """
+#     self.locations = self.generate_locations()
+#     self.profiles = self.measure_loss()
+#     self.roughness = self.measure_roughness()
     
     @staticmethod
     def dataloader(device: torch.device, dataset: Dataset) -> DataLoader:
         """
         See how much of the dataset can be loaded into the device memory.
-
+        TODO: what is the best way to proceed if device is CPU? does it matter?
+        TODO: we do something similar when we load the model to the device, load and catch the exception.
+        can we combine the try catch into a fixture or something similar?
         Returns:
             DataLoader: The largest possible DataLoader that can be loaded into the device memory.
         """
@@ -240,7 +249,7 @@ class Cartographer:
         Writes results directly to class attribute self.profiles.
         """
         # if we have a GPU, use the parallel method, otherwise use the serial method.
-        if torch.cuda.is_available():
+        if self.device.type == "cuda":
             self.measure_profiles_parallel()
         else:
             self.measure_profiles_serial()
