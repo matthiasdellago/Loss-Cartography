@@ -26,17 +26,25 @@ def dataloader():
 def criterion():
     return torch.nn.CrossEntropyLoss()
 
-def test_initialization(criterion, dataloader):
+@pytest.fixture
+def model():
+    return SimpleCNN()
 
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
+@pytest.fixture
+def losslocus(model, criterion, dataloader):
+    return LossLocus(model, criterion, dataloader)
+
+def test_initialization(model,criterion, dataloader):
+
+    A = LossLocus(model, criterion, dataloader)
     assert isinstance(A, LossLocus), "Model did not initialize correctly."
 
     with pytest.raises(TypeError):
         LossLocus(model=None, criterion=criterion, dataloader=dataloader)
     with pytest.raises(TypeError):
-        LossLocus(model=SimpleCNN(), criterion=criterion, dataloader=None)
+        LossLocus(model=model, criterion=criterion, dataloader=None)
     with pytest.raises(TypeError):
-        LossLocus(model=SimpleCNN(), criterion=None, dataloader=dataloader)
+        LossLocus(model=model, criterion=None, dataloader=dataloader)
 
     # test non-jit.scriptable model
     class NonScriptableModel(nn.Module):
@@ -64,23 +72,21 @@ def test_initialization(criterion, dataloader):
     with pytest.raises(ValueError):
         _ = LossLocus(nn.Linear(10,10), criterion, dataloader)
 
-def test_loss_script(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-    assert isinstance(A.loss_script, jit.ScriptModule), "loss_script is not an instance of jit.ScriptModule."
+def test_loss_script(losslocus, dataloader):
+    assert isinstance(losslocus.loss_script, jit.ScriptModule), "loss_script is not an instance of jit.ScriptModule."
 
     # Test if the loss_script is callable
     for data, target in dataloader:
-        _ = A.loss_script(data, target)
+        _ = losslocus.loss_script(data, target)
         break
     
-def test_loss(criterion, dataloader):
-    model = SimpleCNN()
-    A = LossLocus(model, criterion, dataloader)
-    
-    loss = A.loss()
+def test_loss(model, criterion, dataloader):
+    losslocus = LossLocus(model, criterion, dataloader) # create a new instance because fixtures can't be called
+
+    loss = losslocus.loss()
     assert isinstance(loss, float), "Loss is not a float."
     
-    loss2 = A.loss()
+    loss2 = losslocus.loss()
     assert pytest.approx(loss, abs=1e-6) == loss2, "Loss calculation is not deterministic."
 
     # calculate the loss manually
@@ -94,19 +100,15 @@ def test_loss(criterion, dataloader):
 # def test_script_speedup(criterion, dataloader):
 #     assert False, "Test not implemented." # TODO: Implement test
 
-def test_named_parameters(criterion, dataloader):
+def test_named_parameters(losslocus):
     # Test if named_parameters() returns the same parameters as model_w_crit.named_parameters()
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-    
-    for param, direct_param in zip(A.named_parameters(), A.loss_script.named_parameters()):
+    for param, direct_param in zip(losslocus.named_parameters(), losslocus.loss_script.named_parameters()):
         assert param[0] == direct_param[0], "Parameter names do not match."
         assert torch.equal(param[1], direct_param[1]), "Parameter values do not match."
 
-def test_parameters(criterion, dataloader):
+def test_parameters(losslocus):
     # Test if parameters() returns the same parameters as model_w_crit.parameters()
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-        
-    for param, direct_param in zip(A.parameters(), A.loss_script.parameters()):
+    for param, direct_param in zip(losslocus.parameters(), losslocus.loss_script.parameters()):
         assert torch.equal(param, direct_param), "Parameter values do not match."
 
 def test_equality(criterion, dataloader):
@@ -155,54 +157,48 @@ def test_triangle_inequality(criterion, dataloader):
     assert abs(A + B) <= abs(A) + abs(B), "Triangle inequality does not hold."
 
 
-def test_normalization(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
+def test_normalization(losslocus):
     s = torch.rand(1).item()
 
-    A /= abs(A)
-    assert pytest.approx(abs(A), abs=1e-6) == 1, "Normalization did not result in a unit norm."
+    losslocus /= abs(losslocus)
+    assert pytest.approx(abs(losslocus), abs=1e-6) == 1, "Normalization did not result in a unit norm."
 
-    A *= s
-    assert pytest.approx(abs(A), abs=1e-6) == s, "Normalization did not result in the expected norm."
+    losslocus *= s
+    assert pytest.approx(abs(losslocus), abs=1e-6) == s, "Normalization did not result in the expected norm."
 
-def test_in_place_addition(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-    original_A = A._clone()
-    A += original_A
-    assert not A.equal(original_A), "In-place addition does not change the model as expected."
+def test_in_place_addition(losslocus):
+    original_A = losslocus._clone()
+    losslocus += original_A
+    assert not losslocus.equal(original_A), "In-place addition does not change the model as expected."
 
-def test_in_place_subtraction(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-    zeros_A = A._clone()
-    for param in zeros_A.parameters():
+def test_in_place_subtraction(losslocus):
+    zeros_locus = losslocus._clone()
+    for param in zeros_locus.parameters():
         param.data.zero_()
-    A -= A  # Subtracting itself to zero out the parameters
-    assert A.equal(zeros_A), "In-place subtraction does not zero the model as expected."
+    losslocus -= losslocus  # Subtracting itself to zero out the parameters
+    assert losslocus.equal(zeros_locus), "In-place subtraction does not zero the model as expected."
 
-def test_in_place_multiplication(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
-    zeros_A = A._clone()
-    for param in zeros_A.parameters():
+def test_in_place_multiplication(losslocus):
+    zeros_locus = losslocus._clone()
+    for param in zeros_locus.parameters():
         param.data.zero_()
-    A *= 0  # Multiplying by 0 to zero out the parameters
-    assert A.equal(zeros_A), "In-place multiplication does not zero the model as expected."
+    losslocus *= 0  # Multiplying by 0 to zero out the parameters
+    assert losslocus.equal(zeros_locus), "In-place multiplication does not zero the model as expected."
 
-def test_division(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
+def test_division(losslocus):
     s = torch.rand(1).item()
-    B = A/s
+    B = losslocus/s
     B *= s
-    assert A.equal(B), "Division and multiplication are not inverse operations."
+    assert losslocus.equal(B), "Division and multiplication are not inverse operations."
 
-def test_in_place_division(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
+def test_in_place_division(losslocus):
     s = torch.rand(1).item()
-    B = A*s
+    B = losslocus*s
     B /= s
-    assert A.equal(B), "Division and multiplication are not inverse operations."
+    assert losslocus.equal(B), "Division and multiplication are not inverse operations."
 
-def test_error_handling_incompatible_operation(criterion, dataloader):
-    A = LossLocus(SimpleCNN(), criterion, dataloader)
+def test_error_handling_incompatible_operation(criterion, dataloader, losslocus):
+    CNNlocus = losslocus
     # different architecture: a single linear layer, instead of a CNN
     class MNISTLinearClassifier(nn.Module):
         def __init__(self):
@@ -213,10 +209,10 @@ def test_error_handling_incompatible_operation(criterion, dataloader):
             x = x.view(x.size(0), -1)  # Flatten the image to fit Linear layer input
             return self.fc(x)
 
-    B = LossLocus(MNISTLinearClassifier(), criterion, dataloader)
+    Linearlocus = LossLocus(MNISTLinearClassifier(), criterion, dataloader)
     
     with pytest.raises(ValueError) as exc_info:
-        _ = A + B
+        _ = CNNlocus + Linearlocus
         
     print(exc_info.value)
 
