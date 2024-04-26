@@ -37,6 +37,11 @@ def dataset():
 def criterion():
     return torch.nn.CrossEntropyLoss()
 
+@pytest.fixture
+def cartographer(model, dataset, criterion):
+    """A fixture that returns a small Cartographer object with 2 directions and a distance range of -1 to 1."""
+    return Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=-1, pow_max_dist=1)
+
 def test_validate_inputs(model, dataset, criterion):
     # Test validation during __init__ 
     # Test that the Cartographer class validates the input arguments correctly
@@ -151,10 +156,7 @@ def test_shift(model, dataset, criterion):
     # Assert that the shifted point is equal to the expected shifted point
     assert shifted.equal(expected_shifted)
 
-def test_measure_profiles_serial(model, dataset, criterion):
-    # Setup: Create a Cartographer object
-    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
-    
+def test_measure_profiles_serial(cartographer):
     # Execute: Measure the profiles serially
     cartographer.measure_profiles_serial()
     
@@ -164,10 +166,7 @@ def test_measure_profiles_serial(model, dataset, criterion):
     # all values in profiles[0, :] correspond to the center locus (i.e. the model), so they should be the same
     assert np.allclose(cartographer.profiles[0, :], cartographer.profiles[0, 0]), "All values in the first row should be the same."
 
-def test_measure_profiles_parallel(model, dataset, criterion):
-    # Setup: Create a Cartographer object
-    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
-    
+def test_measure_profiles_parallel(cartographer):
     # Execute: Measure the profiles in parallel
     cartographer.measure_profiles_parallel()
     
@@ -177,10 +176,7 @@ def test_measure_profiles_parallel(model, dataset, criterion):
     # all values in profiles[0, :] correspond to the center locus (i.e. the model), so they should be the same
     assert np.allclose(cartographer.profiles[0, :], cartographer.profiles[0, 0]), "All values in the first row should be the same."
 
-def test_parallel_vs_serial(model, dataset, criterion):
-    # Setup: Create a Cartographer object
-    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=1)
-    
+def test_parallel_vs_serial(cartographer):
     # Execute: Measure the profiles serially
     cartographer.measure_profiles_serial()
     profiles_serial = cartographer.profiles.copy()
@@ -198,6 +194,82 @@ def test_parallel_vs_serial(model, dataset, criterion):
     # Verify: Check that the profiles are the same
     assert np.allclose(profiles_serial, profiles_parallel), "Profiles should be the same when measured serially and in parallel."
 
+def test_roughness():
+    # Initialize dist_from_center array
+    dist_from_center = np.array([
+        [2, 3],
+        [4, 6],
+        [8, 12],
+        [16, 24]
+    ])
+
+    # Initialize losses array
+    # Adding an extra row for the first entry, which should be the same for all directions
+    # Here, we introduce a loss anomaly at the third scale (index 2) for both directions
+    anomaly_losses = np.array([
+        [1, 1],  # Loss at the center point (index 0)
+        [5, 5],  # anomaly in direction 1 and 2
+        [1, 1],  
+        [1, -5],  # anomaly in direction 2
+        [1, 1]
+    ])
+
+    anomaly_roughness = Cartographer.roughness(dist_from_center = dist_from_center, losses = anomaly_losses)
+
+    # the biggest "roughness" should be at in the first direction, at the second scale,
+    # because while the loss is the same in both directions, the distance from the center is bigger in the first direction
+    # assert that roughness[0,0] > than all other values
+    assert np.all(anomaly_roughness[0,0] >= anomaly_roughness[:]), "Roughness is not working as expected"
+
+    # test that linar profiles are have roughness 1
+    lin_losses = np.array([
+        [1, 1],  # Loss at the center point (index 0)
+        [1, 2],  # anomaly in direction 1 and 2
+        [1, 4],  
+        [1, 8],  # anomaly in direction 2
+        [1, 16]
+    ])
+
+    lin_roughness = Cartographer.roughness(dist_from_center = dist_from_center, losses = lin_losses)
+
+    # the roughness of both should be 1. everywhere, 
+    # but there might be problems with numerical stability so we will check that the values are close to 1
+    assert np.all(np.isclose(lin_roughness, 1, atol=1e-2)), f"Roughness of linear profiles is not 1, but {anomaly_roughness}"
+
+    # test if the function raises an error if the losses array is the same shape as the distances array
+    with pytest.raises(ValueError):
+        Cartographer.roughness(dist_from_center = dist_from_center, losses = np.ones_like(dist_from_center))
+    # and vice versa
+    with pytest.raises(ValueError):
+        Cartographer.roughness(dist_from_center = np.ones_like(lin_losses), losses = lin_losses)
+
+    # if the first row of losses is not the same, the function should raise an error
+    wrong_losses = np.array([
+        [2, 1],  # 2 != 1
+        [2, 1],
+        [2, 1],  
+        [2, 1],
+        [2, 1]
+    ])
+
+    with pytest.raises(ValueError):
+        Cartographer.roughness(dist_from_center = dist_from_center, losses = wrong_losses)
+
+    # if the distances are not always twice as big as the previous row, the function should raise an error
+    wrong_distances = np.ones_like(dist_from_center)
+
+    with pytest.raises(ValueError):
+        Cartographer.roughness(dist_from_center = wrong_distances, losses = lin_losses)
+    
+def test_roughness_in_vivo(cartographer):
+    # measure profiles
+    cartographer.measure_profiles()
+    # calculate roughness
+    roughness = cartographer.roughness(dist_from_center=cartographer.distances, losses=cartographer.profiles)
+    # check that the roughness is not nan
+    assert not np.isnan(roughness).any(), "Roughness should not contain NaN values."
+    
+
 # def test_roughness_measurement(model, dataset, criterion):
 #     # Test that the roughness measurement works as expected
 #     pass
@@ -213,4 +285,7 @@ def test_parallel_vs_serial(model, dataset, criterion):
 # def test_no_grad(model, dataset, criterion):
 #     # Test that the gradients are off everywhere.
 
-# def test_data_loader(model, dataset, criterion):
+# def test_dataloader(model, dataset, criterion):
+
+# def test_measure_profiles(model, dataset, criterion):
+# see if the decision to use parallel or serial is correct, and the nan check is working

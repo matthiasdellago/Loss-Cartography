@@ -102,7 +102,7 @@ class Cartographer:
 
         # init the profiles and roughness arrays, filled with NaNs
         self.profiles = np.full((self.num_scales + 1, self.num_directions), np.nan)
-        self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
+        #self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
     # def __call__(self) -> None:
     #     """
@@ -230,6 +230,24 @@ class Cartographer:
         shift += point
 
         return shift
+
+    def measure_profiles(self) -> None:
+        """
+        Measures the loss profiles for all distances and directions, as well as the center.
+        Uses the _shift to generate the locations in parameter space.
+        Uses LossLocus.loss() to compute the loss at each location.
+
+        Writes results directly to class attribute self.profiles.
+        """
+        # if we have a GPU, use the parallel method, otherwise use the serial method.
+        if torch.cuda.is_available():
+            self.measure_profiles_parallel()
+        else:
+            self.measure_profiles_serial()
+        
+        # check that the profiles array is filled with numbers
+        if np.any(np.isnan(self.profiles)):
+            raise ValueError("An error occured during the measurement of the loss profiles. Some entries are still np.nan.")
 
     def measure_profiles_serial(self) -> None:
         """
@@ -381,7 +399,8 @@ class Cartographer:
         # tell cuda to free memory
         torch.cuda.empty_cache()
 
-    def measure_roughness(self) -> array:
+    @staticmethod
+    def roughness(dist_from_center: array, losses: array) -> array:
         """
         Measures the roughness for all triples of points on the loss profile.
         Consider you measure the following points: 
@@ -396,18 +415,73 @@ class Cartographer:
            S|    A           |           |
            S|____|___________|___________|___
                     Parameter Space
+        
         We can now define "roughness" at the scale of dist(a,b) by measuring how much B deviates from the straight line between A and C.
         The metric we will use is inspired by the coastline paradox:
         We will measure the length of the curve formed by the path ABC and devide it by the straight line distance from A to C.
         This ratio is what we will call the roughness at the scale of ~dist(a,b).
 
-        Since the predecessor of every point is at half the distance to the center, we can calculate the roughness for all triples of points in parallel.
+        Our distance array was generated such, that the distance between a point (b) and the center (a)
+        is exactly equal to the distance between the point (c) and its successor in the distance array (b).
+
+        We can therefore calculate the roughness at the scale corresponding to b.
+            - Length of line AC = sqrt[{loss(c)-loss(a)}^2 + dist_from_center(c)^2]
+            - Length of curve ABC = AB + AC
+                with:
+                    AB = sqrt[{loss(b)-loss(a)}^2 + dist_from_center(b)^2]
+                    BC = sqrt[{loss(c)-loss(b)}^2 + dist_from_center(b)^2]
+            => roughness[b] = ABC/AB
+
+        Args:
+            dist_from_center (array): The distance of each point from the center.
+                Dimensions: (num_scales, num_directions)
+            losses (array): The loss profiles measured along the specified directions.
+                Dimensions: (num_scales+1, num_directions)
 
         Returns:
             array: roughness at each scale, in each direction.
                 Dimensions: (num_scales-1, num_directions), since no roughness can be calculated for the start and end points.
         """
-        pass
+        # Validation
+        if not isinstance(dist_from_center, np.ndarray):
+            raise TypeError(f"Expected 'dist_from_center' type np.ndarray, got {type(dist_from_center)}")
+        if not isinstance(losses, np.ndarray):
+            raise TypeError(f"Expected 'profiles' type np.ndarray, got {type(losses)}")
+        # Test that the distances are positive
+        if not np.all(dist_from_center > 0):
+            raise ValueError(f"Expected all distances to be positive, got {dist_from_center}")
+        # check that the first entry in the profiles array (center) is the same for all directions
+        if not np.all(losses[0, :] == losses[0, 0]):
+            raise ValueError(f"Expected all profiles[0, :] to be the same because they represent the center, got {losses[0, :]}")
+
+        # prepend 0 to the distances array, to represent the distance from the center to the center.
+        # rename to distA to underscore that it is the distance as measured from A
+        distA = np.vstack((np.zeros((1, dist_from_center.shape[1])), dist_from_center))
+
+        # check that the shapes are now correct
+        if not distA.shape == losses.shape:
+            raise ValueError(f"Expected distances and losses to have the same shape after accounting for the center, got {distA.shape} and {losses.shape}")
+
+        # Define slices for the triples
+        a = 0               # a is always the center
+        b = slice(1, -1)    # b is in the middle, but never the first or last entry of dist/losses so exclude one on either side
+        c = slice(2, None)  # c is the last of the triplet, and must always have to predecessors (a and b) so exclude the first two
+
+        # Perform calculations directly using slices
+        distB_c = distA[b] # = distA[c] - distA[b], because distA[c] = 2*distA[b]
+
+        # use this to verify that the distances are correct
+        if not np.all(distA[c] == 2*distA[b]):
+            raise ValueError(f"Expected distA[c] = 2*distA[b], got {distA[c]} and {2*distA[b]}")
+
+        AB = np.sqrt((losses[b] - losses[a])**2 + distA[b]**2) # the distance from the center of
+        BC = np.sqrt((losses[c] - losses[b])**2 + distB_c**2)
+        AC = np.sqrt((losses[c] - losses[a])**2 + distA[c]**2) 
+
+        # Calculate roughness
+        roughness = (AB + BC) / AC
+
+        return roughness
 
     def plot(self) -> plt.Figure:
         """
