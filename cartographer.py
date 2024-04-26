@@ -18,7 +18,7 @@ For each point on the profile, it measures the roughness at that scale by way of
 import torch
 from torch import nn
 from torch import jit
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torch.nn.modules.loss import _Loss
 from torch.nn import ModuleDict
 from loss_locus import LossLocus # vector operations on nn.Module
@@ -49,7 +49,7 @@ class Cartographer:
 
     Attributes:
         center (LossLocus): The machine learning model to be analyzed.
-        dataloader (DataLoader): The dataset used to compute the loss. For deterministic loss we iterate over the entire dataset. Make sure to use a small dataset.
+        dataset (Dataset): The dataset used to compute the loss. For deterministic loss we iterate over the entire dataset. Make sure to use a small dataset.
         loss_function (_Loss): The loss function used to evaluate the model.
         directions (int): The number of random directions to be generated.
         pow_min_dist (int): 2^pow_min_dist is the smallest distance to be used in the multi-scale analysis.
@@ -72,7 +72,7 @@ class Cartographer:
     def __init__(
         self,
         model: LossLocus,
-        dataloader: DataLoader,
+        dataset: Dataset,
         criterion: _Loss,
         num_directions: int = 3,
         pow_min_dist: int = -21,
@@ -80,19 +80,21 @@ class Cartographer:
     ) -> None:
         # Turn gradients off
         torch.set_grad_enabled(False)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Validate the inputs
-        self._validate_inputs(model, dataloader, criterion, num_directions, pow_min_dist, pow_max_dist)
+        self._validate_inputs(model, dataset, criterion, num_directions, pow_min_dist, pow_max_dist)
+        # create the biggest possible dataloader that fits into the device memory
+        self.dataloader = self.dataloader(self.device, dataset)
         self.model_class = model.__class__
-        self.center = LossLocus(model, criterion, dataloader)
-        self.dataloader = dataloader
         self.criterion = criterion
+
+        self.center = LossLocus(model, self.criterion, self.dataloader)
         self.num_directions = num_directions
         self.pow_min_dist = pow_min_dist
         self.pow_max_dist = pow_max_dist
         self.num_scales = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.center.to(self.device)
 
         self.distances = self.generate_distances()
@@ -102,15 +104,41 @@ class Cartographer:
         self.profiles = np.full((self.num_scales + 1, self.num_directions), np.nan)
         self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
-    def __call__(self) -> None:
+    # def __call__(self) -> None:
+    #     """
+    #     Generates the locations in parameter space at which the loss
+    #     will be measured, computes the loss profiles and roughness for each scale, and
+    #     stores the results in the class attributes `profiles` and `roughness`.
+    #     """
+    #     self.locations = self.generate_locations()
+    #     self.profiles = self.measure_loss()
+    #     self.roughness = self.measure_roughness()
+    
+    @staticmethod
+    def dataloader(device: torch.device, dataset: Dataset) -> DataLoader:
         """
-        Generates the locations in parameter space at which the loss
-        will be measured, computes the loss profiles and roughness for each scale, and
-        stores the results in the class attributes `profiles` and `roughness`.
+        See how much of the dataset can be loaded into the device memory.
+
+        Returns:
+            DataLoader: The largest possible DataLoader that can be loaded into the device memory.
         """
-        self.locations = self.generate_locations()
-        self.profiles = self.measure_loss()
-        self.roughness = self.measure_roughness()
+        # try to load the whole dataset to the device, if possible.
+        denominator = 1
+        while True:
+            try:
+                dataloader = DataLoader(dataset, batch_size=len(dataset)//denominator, shuffle=False)
+                data, target = next(iter(dataloader))
+                data.to(device)
+                target.to(device)
+                # if it works, break the loop
+                break
+            # if we run out of memory, catch the exception
+            except RuntimeError as e:
+                # try with a smaller batch size
+                denominator += 1
+
+        return dataloader
+
 
     def generate_distances(self) -> array:
         """
@@ -411,7 +439,7 @@ class Cartographer:
     def _validate_inputs(
         self,
         model: nn.Module,
-        dataloader: DataLoader,
+        dataset: Dataset,
         loss_function: _Loss,
         directions: int,
         pow_min_dist: int,
@@ -426,8 +454,8 @@ class Cartographer:
         if not isinstance(model, nn.Module):
             raise TypeError("'model' must be an instance of torch.nn.Module")
 
-        if not isinstance(dataloader, DataLoader):
-            raise TypeError("'dataloader' must be an instance of torch.utils.data.DataLoader")
+        if not isinstance(dataset, Dataset):
+            raise TypeError("'dataset' must be an instance of torch.utils.data.Dataset")
 
         if not isinstance(loss_function, _Loss):
             raise TypeError("'loss_function' must be an instance of torch.nn.modules.loss._Loss")
@@ -450,11 +478,12 @@ class Cartographer:
         except AttributeError as e:
             raise ValueError(f"Model does not support evaluation mode: {str(e)}")
 
-        # Test DataLoader output
+        # Test try making a dataloader from the dataset
         try:
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
             sample_input, sample_target = next(iter(dataloader))
         except TypeError as e:
-            raise ValueError(f"DataLoader is not iterable or does not produce outputs and targets: {str(e)}")
+            raise ValueError(f"Dataset does not produce an iterable dataloader or does not produce outputs and targets: {str(e)}")
 
         # Model output compatibility with loss function
         try:
