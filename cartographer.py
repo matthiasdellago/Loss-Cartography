@@ -97,18 +97,25 @@ class Cartographer:
         self.criterion = criterion
 
         self.center = LossLocus(model, self.criterion, self.dataloader)
-        self.num_directions = num_directions
-        self.pow_min_dist = pow_min_dist
-        self.pow_max_dist = pow_max_dist
-        self.num_scales = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
+        
+        self.DIRECTIONS = num_directions
+        self.POW_MIN_DIST = pow_min_dist
+        self.POW_MAX_DIST = pow_max_dist
+        self.SCALES = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
 
         self.center.to(self.device)
 
+
         self.distances = self.generate_distances()
+        self.distances.flags.writeable = False
+        # an array that includes a row of 0s for the center
+        self.distances_w_0 = np.vstack((np.zeros((1, self.DIRECTIONS)), self.distances))
+        self.distances_w_0.flags.writeable = False
+
         self.directions = self.generate_directions()
 
         # init the profiles and roughness arrays, filled with NaNs
-        self.profiles = np.full((self.num_scales + 1, self.num_directions), np.nan)
+        self.profiles = np.full((self.SCALES + 1, self.DIRECTIONS), np.nan)
         #self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
 # def __call__(self) -> None:
@@ -168,16 +175,16 @@ class Cartographer:
 
         # To avoid hitting special frequencies in the model, we use different step sizes for different directions.
         # This way we get a logarithmically spaced set of distances.
-        dir_steps = 2. ** np.linspace(0, 1, self.num_directions, endpoint=False)
+        dir_steps = 2. ** np.linspace(0, 1, self.DIRECTIONS, endpoint=False)
 
         # For a given direction, we step from 2^pow_min_dist to 2^pow_max_dist
         # 2^pow_max_dist should be included, so we add 1 to the range
-        scale_steps = 2. ** np.arange(self.pow_min_dist, self.pow_max_dist + 1)
+        scale_steps = 2. ** np.arange(self.POW_MIN_DIST, self.POW_MAX_DIST + 1)
 
         # Compute the matrix of distances using np.outer
         distances = np.outer(scale_steps, dir_steps)
         
-        assert distances.shape == (self.num_scales,self.num_directions)
+        assert distances.shape == (self.SCALES,self.DIRECTIONS)
 
         return distances
             
@@ -191,7 +198,7 @@ class Cartographer:
                 Dimensions: (num_directions)
         """
         # Create a list of random models of the same class as the center model
-        rand_models = [self.model_class() for _ in range(self.num_directions)]
+        rand_models = [self.model_class() for _ in range(self.DIRECTIONS)]
 
         # turn that into a list of LossLocus objects
         directions = [LossLocus(model, self.criterion, self.dataloader) for model in rand_models]
@@ -270,8 +277,8 @@ class Cartographer:
         """
 
         # loop over all distances and directions
-        for i_dist in range(self.num_scales):
-            for i_dir in range(self.num_directions):
+        for i_dist in range(self.SCALES):
+            for i_dir in range(self.DIRECTIONS):
                 # debug print
                 print(f"Measuring profile at distance {self.distances[i_dist][i_dir]} in direction {i_dir}")
                 # create a new model by shifting the center in the specified direction by the specified distance
@@ -301,8 +308,8 @@ class Cartographer:
         # create a stack of tuples indexing all directions and distances
         # We will iterate over this stack to load models into GPU memory.
         stack = [(i_dist, i_dir) 
-                for i_dir in range(self.num_directions)
-                for i_dist in range(self.num_scales)]
+                for i_dir in range(self.DIRECTIONS)
+                for i_dist in range(self.SCALES)]
 
         # add an entry for the center, we will catch the -1 later.
         stack.append((-1, 0))
@@ -367,10 +374,10 @@ class Cartographer:
 
         # Out of bounds check
         for i_dist, i_dir in locus_batch.keys():
-            if not i_dist in range(-1,self.num_scales):
-                raise ValueError(f"Expected -1 <= i_dist <= {self.num_scales-1}, got i_dist={i_dist}.")
-            if not i_dir in range(self.num_directions):
-                raise ValueError(f"Expected 0 <= i_dir <= {self.num_directions-1}, got i_dir={i_dir}.")
+            if not i_dist in range(-1,self.SCALES):
+                raise ValueError(f"Expected -1 <= i_dist <= {self.SCALES-1}, got i_dist={i_dist}.")
+            if not i_dir in range(self.DIRECTIONS):
+                raise ValueError(f"Expected 0 <= i_dir <= {self.DIRECTIONS-1}, got i_dir={i_dir}.")
 
         # TODO: is this the best place to do this? redundant?
         for locus in locus_batch.values():
@@ -409,7 +416,7 @@ class Cartographer:
         torch.cuda.empty_cache()
 
     @staticmethod
-    def roughness(dist_from_center: array, losses: array) -> array:
+    def roughness(distances_w_0: array, losses: array) -> array:
         """
         Measures the roughness for all triples of points on the loss profile.
         Consider you measure the following points: 
@@ -433,17 +440,9 @@ class Cartographer:
         Our distance array was generated such, that the distance between a point (b) and the center (a)
         is exactly equal to the distance between the point (c) and its successor in the distance array (b).
 
-        We can therefore calculate the roughness at the scale corresponding to b.
-            - Length of line AC = sqrt[{loss(c)-loss(a)}^2 + dist_from_center(c)^2]
-            - Length of curve ABC = AB + AC
-                with:
-                    AB = sqrt[{loss(b)-loss(a)}^2 + dist_from_center(b)^2]
-                    BC = sqrt[{loss(c)-loss(b)}^2 + dist_from_center(b)^2]
-            => roughness[b] = ABC/AB
-
         Args:
-            dist_from_center (array): The distance of each point from the center.
-                Dimensions: (num_scales, num_directions)
+            distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
+                Dimensions: (num_scales+1, num_directions)
             losses (array): The loss profiles measured along the specified directions.
                 Dimensions: (num_scales+1, num_directions)
 
@@ -452,20 +451,20 @@ class Cartographer:
                 Dimensions: (num_scales-1, num_directions), since no roughness can be calculated for the start and end points.
         """
         # Validation
-        if not isinstance(dist_from_center, np.ndarray):
-            raise TypeError(f"Expected 'dist_from_center' type np.ndarray, got {type(dist_from_center)}")
+        if not isinstance(distances_w_0, np.ndarray):
+            raise TypeError(f"Expected 'distances_w_0' type np.ndarray, got {type(distances_w_0)}")
         if not isinstance(losses, np.ndarray):
             raise TypeError(f"Expected 'profiles' type np.ndarray, got {type(losses)}")
         # Test that the distances are positive
-        if not np.all(dist_from_center > 0):
-            raise ValueError(f"Expected all distances to be positive, got {dist_from_center}")
+        if not np.all(distances_w_0 >= 0):
+            raise ValueError(f"Expected all distances to be positive, got {distances_w_0}")
         # check that the first entry in the profiles array (center) is the same for all directions
         if not np.all(losses[0, :] == losses[0, 0]):
             raise ValueError(f"Expected all profiles[0, :] to be the same because they represent the center, got {losses[0, :]}")
 
         # prepend 0 to the distances array, to represent the distance from the center to the center.
         # rename to distA to underscore that it is the distance as measured from A
-        distA = np.vstack((np.zeros((1, dist_from_center.shape[1])), dist_from_center))
+        distA = distances_w_0
 
         # check that the shapes are now correct
         if not distA.shape == losses.shape:
@@ -491,15 +490,25 @@ class Cartographer:
         roughness = (AB + BC) / AC
 
         return roughness
-
-    def plot(self) -> plt.Figure:
+    
+    @staticmethod
+    def map(profiles: array, distances_w_0: array) -> plt.Figure:
         """
-        Plot the loss landscape and the roughness profiles.
+        Plot the loss landscape.
+
+        Args:
+            profiles (array): The loss profiles measured along the some directions.
+                Dimensions: (num_scales+1, num_directions)
+            distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
+                Dimensions: (num_scales+1, num_directions)
 
         Returns:
-            plt.Figure: The figure containing the loss and roughness plots.
+            plt.Figure: The figure containing the loss.
         """
-        pass
+        # Create a figure
+        fig, ax = plt.subplots()
+
+        
 
     def plot_loss(self) -> plt.Figure:
         """

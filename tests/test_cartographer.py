@@ -195,8 +195,9 @@ def test_parallel_vs_serial(cartographer):
     assert np.allclose(profiles_serial, profiles_parallel), "Profiles should be the same when measured serially and in parallel."
 
 def test_roughness():
-    # Initialize dist_from_center array
-    dist_from_center = np.array([
+    # Initialize distances_w_0 array
+    distances_w_0 = np.array([
+        [0, 0],
         [2, 3],
         [4, 6],
         [8, 12],
@@ -214,7 +215,7 @@ def test_roughness():
         [1, 1]
     ])
 
-    anomaly_roughness = Cartographer.roughness(dist_from_center = dist_from_center, losses = anomaly_losses)
+    anomaly_roughness = Cartographer.roughness(distances_w_0 = distances_w_0, losses = anomaly_losses)
 
     # the biggest "roughness" should be at in the first direction, at the second scale,
     # because while the loss is the same in both directions, the distance from the center is bigger in the first direction
@@ -230,18 +231,18 @@ def test_roughness():
         [1, 16]
     ])
 
-    lin_roughness = Cartographer.roughness(dist_from_center = dist_from_center, losses = lin_losses)
+    lin_roughness = Cartographer.roughness(distances_w_0 = distances_w_0, losses = lin_losses)
 
     # the roughness of both should be 1. everywhere, 
     # but there might be problems with numerical stability so we will check that the values are close to 1
     assert np.all(np.isclose(lin_roughness, 1, atol=1e-2)), f"Roughness of linear profiles is not 1, but {anomaly_roughness}"
 
-    # test if the function raises an error if the losses array is the same shape as the distances array
+    # test if the function raises an error if the losses array is not the same shape as the distances array
     with pytest.raises(ValueError):
-        Cartographer.roughness(dist_from_center = dist_from_center, losses = np.ones_like(dist_from_center))
+        Cartographer.roughness(distances_w_0 = distances_w_0, losses = lin_losses[:-1])
     # and vice versa
     with pytest.raises(ValueError):
-        Cartographer.roughness(dist_from_center = np.ones_like(lin_losses), losses = lin_losses)
+        Cartographer.roughness(distances_w_0 = distances_w_0[:-1], losses = lin_losses)
 
     # if the first row of losses is not the same, the function should raise an error
     wrong_losses = np.array([
@@ -253,19 +254,19 @@ def test_roughness():
     ])
 
     with pytest.raises(ValueError):
-        Cartographer.roughness(dist_from_center = dist_from_center, losses = wrong_losses)
+        Cartographer.roughness(distances_w_0 = distances_w_0, losses = wrong_losses)
 
     # if the distances are not always twice as big as the previous row, the function should raise an error
-    wrong_distances = np.ones_like(dist_from_center)
+    wrong_distances = np.ones_like(distances_w_0)
 
     with pytest.raises(ValueError):
-        Cartographer.roughness(dist_from_center = wrong_distances, losses = lin_losses)
+        Cartographer.roughness(distances_w_0 = wrong_distances, losses = lin_losses)
     
 def test_roughness_in_vivo(cartographer):
     # measure profiles
     cartographer.measure_profiles()
     # calculate roughness
-    roughness = cartographer.roughness(dist_from_center=cartographer.distances, losses=cartographer.profiles)
+    roughness = cartographer.roughness(distances_w_0=cartographer.distances_w_0, losses=cartographer.profiles)
     # check that the roughness is not nan
     assert not np.isnan(roughness).any(), "Roughness should not contain NaN values."
     
