@@ -224,18 +224,17 @@ def test_roughness():
 
     # test that linar profiles are have roughness 1
     lin_losses = np.array([
-        [1, 1],  # Loss at the center point (index 0)
-        [1, 2],  # anomaly in direction 1 and 2
-        [1, 4],  
-        [1, 8],  # anomaly in direction 2
-        [1, 16]
+        [0, 0],  # Loss at the center point (index 0)
+        [0, 2],  # anomaly in direction 1 and 2
+        [0, 4],  
+        [0, 8],  # anomaly in direction 2
+        [0, 16]
     ])
 
     lin_roughness = Cartographer.roughness(distances_w_0 = distances_w_0, losses = lin_losses)
 
     # the roughness of both should be 1. everywhere, 
-    # but there might be problems with numerical stability so we will check that the values are close to 1
-    assert np.all(np.isclose(lin_roughness, 1, atol=1e-2)), f"Roughness of linear profiles is not 1, but {anomaly_roughness}"
+    assert np.all(lin_roughness == 1), "Roughness should be 1 for linear profiles"
 
     # test if the function raises an error if the losses array is not the same shape as the distances array
     with pytest.raises(ValueError):
