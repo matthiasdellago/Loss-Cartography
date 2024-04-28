@@ -13,6 +13,7 @@ The resolution of the profiles is logarithmic in the distance from the current l
 This allows the cartographer to perform a multi-scale analysis of the loss landscape.
 In addition to the profiles, the cartographer also performs a roughness analysis of the loss landscape.
 For each point on the profile, it measures the roughness at that scale by way of the coastline paradox.
+TODO: Distinguish this method from FFT and the Hessian. Explain downsides of each with the counter example.
 """
 
 import torch
@@ -418,6 +419,8 @@ class Cartographer:
     @staticmethod
     def roughness(distances_w_0: array, losses: array) -> array:
         """
+        TODO: Maybe it should be called 'grit' or 'grit size' instead of 'roughness'? Like sandpaper grit.
+        or is the grit size of a landscape the scale at which the roughness is largest? no that's called particle size in sandpaper.
         Measures the roughness for all triples of points on the loss profile.
         Consider you measure the following points: 
         A = (a,loss(a))
@@ -521,7 +524,7 @@ class Cartographer:
 
     def plot_roughness(self) -> plt.Figure:
         """
-        Plots the roughness at different scales for multiple directions, as contained in the roughness array.
+        Plots the roughness at different 'COARSE GRAIN SCALES' for multiple directions, as contained in the roughness array.
         
         Returns:
             plt.Figure: The figure containing the roughness profiles plot.
