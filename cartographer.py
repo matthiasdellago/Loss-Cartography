@@ -71,6 +71,7 @@ class Cartographer:
     TODO: Should I replace numpy arrays with torch tensors for everything that touches the GPU?
     TODO: Decide wether to return the results or store them in the class attributes, or both. Should all methods work the same way?
     TODO: Should I add a class that contains the loss function, so that we can compute the loss all in one go? Would help with jit.fork.
+    TODO: Is keeping distances and distances_w_0 redundant ugly? should the methods add the zeros internally? it makes staticmethods easier though?
     """
     def __init__(
         self,
@@ -92,7 +93,7 @@ class Cartographer:
             warn("No GPU available. Running on CPU.")
 
         # Validate the inputs
-        self._validate_inputs(model, dataset, criterion, num_directions, pow_min_dist, pow_max_dist)
+        self._validate_inputs(self.device, model, dataset, criterion, num_directions, pow_min_dist, pow_max_dist)
         # create the biggest possible dataloader that fits into the device memory
         self.dataloader = self.dataloader(self.device, dataset)
         self.model_class = model.__class__
@@ -118,17 +119,20 @@ class Cartographer:
 
         # init the profiles and roughness arrays, filled with NaNs
         self.profiles = np.full((self.SCALES + 1, self.DIRECTIONS), np.nan)
-        #self.roughness = np.full((self.num_scales - 1, self.num_directions), np.nan)
 
-# def __call__(self) -> None:
-#     """
-#     Generates the locations in parameter space at which the loss
-#     will be measured, computes the loss profiles and roughness for each scale, and
-#     stores the results in the class attributes `profiles` and `roughness`.
-#     """
-#     self.locations = self.generate_locations()
-#     self.profiles = self.measure_loss()
-#     self.roughness = self.measure_roughness()
+    def __call__(self) -> None:
+        """
+        Generates the locations in parameter space at which the loss
+        will be measured, computes the loss profiles and roughness for each scale, and
+        stores the results in the class attributes `profiles` and `roughness`.
+
+        Then plots the loss profiles and roughness.
+        TODO: Think more about the usecase. Should init already do all this?
+        """
+        self.measure_profiles()
+        self.roughness = self.roughness(self.profiles, self.distances_w_0)
+
+        self.plot()
     
     @staticmethod
     def dataloader(device: torch.device, dataset: Dataset) -> DataLoader:
@@ -446,6 +450,10 @@ class Cartographer:
         Our distance array was generated such, that the distance between a point (b) and the center (a)
         is exactly equal to the distance between the point (c) and its successor in the distance array (b).
 
+        Note of interest: Take an ellipse with A and C as the foci and B as a point on the ellipse.
+        Then roughness is the ratio of the length of semi-major axis to the linear eccentricity.
+        Whonder what this means. It's definitely useful for inverting roughness to recover B.
+
         Args:
             distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
                 Dimensions: (num_scales+1, num_directions)
@@ -497,21 +505,33 @@ class Cartographer:
 
         return roughness
     
-    @staticmethod
-    def map(profiles: array, distances_w_0: array) -> plt.Figure:
-        """
-        Plot the loss landscape.
+    # @staticmethod
+    # def map(profiles: array, distances_w_0: array) -> plt.Figure:
+    #     """
+    #     Plot the loss landscape.
 
-        Args:
-            profiles (array): The loss profiles measured along the some directions.
-                Dimensions: (num_scales+1, num_directions)
-            distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
-                Dimensions: (num_scales+1, num_directions)
+    #     Args:
+    #         profiles (array): The loss profiles measured along the some directions.
+    #             Dimensions: (num_scales+1, num_directions)
+    #         distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
+    #             Dimensions: (num_scales+1, num_directions)
 
-        Returns:
-            plt.Figure: The figure containing the loss.
+    #     Returns:
+    #         plt.Figure: The figure containing the loss.
+    #     """
+    #     pass
+
+    def plot(self) -> None:
         """
-        pass
+        Create and display all plots
+        """
+        # Plot the loss profiles
+        fig = self.plot_profiles(self.profiles, self.distances_w_0)
+        fig.show()
+
+        # Plot the roughness
+        fig = self.plot_roughness(self.roughness, self.distances)
+        fig.show()
 
         
     @staticmethod
@@ -653,9 +673,10 @@ class Cartographer:
 
     def _validate_inputs(
         self,
+        device: torch.device,
         model: nn.Module,
         dataset: Dataset,
-        loss_function: _Loss,
+        criterion: _Loss,
         directions: int,
         pow_min_dist: int,
         pow_max_dist: int,
@@ -672,8 +693,8 @@ class Cartographer:
         if not isinstance(dataset, Dataset):
             raise TypeError("'dataset' must be an instance of torch.utils.data.Dataset")
 
-        if not isinstance(loss_function, _Loss):
-            raise TypeError("'loss_function' must be an instance of torch.nn.modules.loss._Loss")
+        if not isinstance(criterion, _Loss):
+            raise TypeError("'criterion must be an instance of torch.nn.modules.loss._Loss")
 
         if not isinstance(directions, int) or directions < 0:
             raise ValueError("'directions' must be a positive integer")
@@ -700,6 +721,15 @@ class Cartographer:
         except TypeError as e:
             raise ValueError(f"Dataset does not produce an iterable dataloader or does not produce outputs and targets: {str(e)}")
 
+        # try loading everything to device
+        try:
+            model.to(device)
+            criterion.to(device)
+            sample_input.to(device)
+            sample_target.to(device)
+        except Exception as e:
+            raise ValueError(f"Failed to load model, criterion, input or target to device: {str(e)}")
+
         # Model output compatibility with loss function
         try:
             test_output = model(sample_input)
@@ -708,6 +738,6 @@ class Cartographer:
         
         # Target and output compatibility with loss function
         try:
-            loss_function(test_output, sample_target)
+            criterion(test_output, sample_target)
         except Exception as e:
             raise ValueError(f"Loss function cannot process model output: {str(e)}")

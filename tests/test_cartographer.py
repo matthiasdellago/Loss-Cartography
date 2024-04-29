@@ -309,7 +309,7 @@ def test_plot_roughness_real(cartographer):
     # measure profiles
     cartographer.measure_profiles()
     # calculate roughness
-    roughness = cartographer.roughness(losses=cartographer.profiles, distances=cartographer.distances)
+    roughness = cartographer.roughness(losses=cartographer.profiles, distances_w_0=cartographer.distances_w_0)
     # plot
     fig = cartographer.plot_roughness(roughness, cartographer.distances)
 
@@ -317,13 +317,9 @@ def test_plot_roughness_real(cartographer):
 
     assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
 
-# def test_full_workflow(model, dataset, criterion):
-#     # Test the full Cartographer workflow
-#     pass
-
-# def test_plotting(model, dataset, criterion):
-#     # Test that the plot generation works as expected
-#     pass
+def test__call__(cartographer):
+    # does everything and opens results in browser on localhost
+    cartographer()
 
 # def test_no_grad(model, dataset, criterion):
 #     # Test that the gradients are off everywhere.
