@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import array
 from warnings import warn
+import plotly.graph_objects as go
 
 class Cartographer:
     """
@@ -275,13 +276,15 @@ class Cartographer:
         Don't use this method if you have a GPU available, it will be slow.
         Uses LossLocus.loss() to compute the loss at each location, which goes through the entire dataloader.
         Obviously inefficient.
+        TODO: add progress bar.
         """
+        warn('Measuring losses serially, because no GPU is available. This will be slow.')
 
         # loop over all distances and directions
         for i_dist in range(self.SCALES):
             for i_dir in range(self.DIRECTIONS):
                 # debug print
-                print(f"Measuring profile at distance {self.distances[i_dist][i_dir]} in direction {i_dir}")
+                print(f"Measuring loss at distance {self.distances[i_dist][i_dir]} in direction {i_dir}")
                 # create a new model by shifting the center in the specified direction by the specified distance
                 location = self._shift(self.center, self.directions[i_dir], self.distances[i_dist][i_dir])
                 location.to(self.device)
@@ -352,7 +355,7 @@ class Cartographer:
         # normalize the profiles, by dividing by the number of samples in the dataloader.
         self.profiles /= len(self.dataloader)
 
-    def parallel_evaluate(self,locus_batch: {(int,int) : LossLocus}) -> None:
+    def parallel_evaluate(self, locus_batch: {(int,int) : LossLocus}) -> None:
         """
         Evaluates the loss for a batch of models in parallel.
         Uses torch.jit.fork to parallelize the computation of the loss profiles.
@@ -512,15 +515,85 @@ class Cartographer:
         fig, ax = plt.subplots()
 
         
+    @staticmethod
+    def plot_profiles(losses: array, distances_w_0: array) -> go.Figure:
+        """
+        Plot the loss sampled at different distances from the center along different directions.
 
-    def plot_loss(self) -> plt.Figure:
-        """
-        Plots the loss landscape given by the loss profiles array.
-        
+        Args:
+            profiles (array): The loss profiles measured along the some directions.
+                Dimensions: (num_scales+1, num_directions)
+            distances (array): INCLUDING 0! The distance of each point from the center, including the center. (ie. a row of 0s)
+                Dimensions: (num_scales+1, num_directions)
+
         Returns:
-            plt.Figure: The figure containing the loss landscape plot.
+            go.Figure: The figure containing the loss.
         """
-        pass
+        
+        # validate the input
+        if not isinstance(losses, np.ndarray) or not isinstance(distances_w_0, np.ndarray):
+            raise ValueError(f'Both losses and distances_w_0 must be numpy arrays, but got {type(losses)} and {type(distances_w_0)} respectively')
+        if not losses.shape == distances_w_0.shape:
+            raise ValueError(f'Both losses and distances_w_0 must have the same shape, but got {losses.shape} and {distances.shape} respectively')
+        if not all(distances_w_0[0] == 0):
+            raise ValueError(f'The first column of distances_w_0 must be zero, but got {distances_w_0[0]} instead')
+
+        # copy the distances array, so that we can modify it
+        distances = distances_w_0.copy()
+
+        flip = True  # Whether to flip half the directions or not
+
+        if flip:
+            distances[:, 1::2] = -distances[:, 1::2]  # Negate every second direction
+
+        fig = go.Figure()
+
+        # Adding traces
+        for i in range(distances.shape[1]):
+            #ic(distances[:, i], losses[:, i])
+            #ic(len(distances[:, i]), len(losses[:, i]))
+            fig.add_trace(go.Scatter(
+                x=distances[:, i], 
+                y=losses[:, i], 
+                mode='lines',   #+markers',
+                name=f'Direction {i+1}',
+                #marker = dict(symbol='cross')
+            ))
+
+        # Update layout for better interactivity
+        fig.update_layout(
+            title='Loss Landscape',
+            xaxis_title='Distance from Center',
+            yaxis_title='Loss',
+            dragmode='zoom',
+            hovermode='closest'
+        )
+
+        # Customizing x-axis for powers of two, remove zero because of the log2
+        all_distances = distances[1:].flatten()
+        # Add powers of two for all oom that appear in the distances
+        # round all distances to the nearest power of two
+        powers_of_two = np.unique(np.round(np.log2(np.abs(all_distances)))).astype(int)
+        # turn into distances positive, negative and zero
+        tickvals = np.concatenate([-2. ** powers_of_two, [0], 2. ** powers_of_two])
+
+        #tickvals_exponent = np.sort(np.concatenate([tickvals, [0]]))
+        ticktext = [f"2^{int(np.log2(abs(x)))}" if x != 0 else '0' for x in tickvals]
+
+        fig.update_xaxes(tickvals=tickvals, ticktext=ticktext)
+
+        # Center the axes around zero, so that we can start zooming out of the box
+        # Calculate maximum distance for symmetric x-axis range
+        max_distance = np.max(np.abs(distances))
+
+        # Calculate maximum loss for symmetric y-axis range
+        max_loss = np.max(np.abs(losses))
+
+        # Update x-axis and y-axis to be symmetric around zero
+        fig.update_xaxes(range=[-max_distance, max_distance])
+        fig.update_yaxes(range=[-max_loss, max_loss])
+
+        return fig
 
     def plot_roughness(self) -> plt.Figure:
         """

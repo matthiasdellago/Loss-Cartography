@@ -9,6 +9,7 @@ from loss_locus import LossLocus
 from cartographer import Cartographer
 from simple_cnn import SimpleCNN
 import numpy as np
+import plotly.graph_objects as go
 
 # TODO: Find out why pytests run so extremely slow. Running these tests takes 768 seconds on my machine!
 # Invoking some of the tests manually takes a few seconds.
@@ -269,6 +270,18 @@ def test_roughness_in_vivo(cartographer):
     # check that the roughness is not nan
     assert not np.isnan(roughness).any(), "Roughness should not contain NaN values."
     
+def test_plot_loss_dummy(cartographer):
+    # get distances
+    distances = cartographer.distances_w_0
+    # make a random loss array, but take care that the first row is the same
+    losses = np.abs(np.random.rand(*distances.shape))
+    losses[0, :] = 0
+    # plot
+    fig = cartographer.plot_profiles(losses, distances)
+
+    assert fig is not None, "Plot should not be None"
+
+    assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
 
 # def test_roughness_measurement(model, dataset, criterion):
 #     # Test that the roughness measurement works as expected
