@@ -1,7 +1,7 @@
 #test_cartographer.py
 import pytest
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torch import nn
 from torchvision.datasets import MNIST
 from torchvision import transforms
@@ -22,8 +22,9 @@ def device():
 def model(device):
     return SimpleCNN().to(device)
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dataset():
+    # small dataset for testing
     # Use a standard MNIST normalization
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -32,7 +33,16 @@ def dataset():
     
     dataset = MNIST(root='./data', train=False, download=True, transform=transform)
 
-    return dataset
+    # Specify the size of the subset you want, e.g., 100 samples
+    subset_size = 100
+
+    # Generate a random subset of indices
+    indices = np.random.choice(len(dataset), subset_size, replace=False)
+
+    # Create the subset dataset
+    subset_dataset = torch.utils.data.Subset(dataset, indices)
+
+    return subset_dataset
 
 @pytest.fixture
 def criterion():
@@ -42,6 +52,13 @@ def criterion():
 def cartographer(model, dataset, criterion):
     """A fixture that returns a small Cartographer object with 2 directions and a distance range of -1 to 1."""
     return Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=-1, pow_max_dist=1)
+
+def test_data_loading_and_type(dataset):
+    loader = DataLoader(dataset, batch_size=10, shuffle=False)
+    data, targets = next(iter(loader))
+
+    assert data.dtype == torch.float32, f"Data type should be float32, got {data.dtype}"
+    assert targets.dtype == torch.int64, f"Target type should be int64, got {targets.dtype}"
 
 def test_validate_inputs(model, dataset, criterion):
     # Test validation during __init__ 

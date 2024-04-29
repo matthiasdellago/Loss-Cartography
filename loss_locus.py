@@ -93,7 +93,7 @@ class LossLocus():
             # load the data and target to the device
             device = next(self.loss_script.parameters()).device
             data = data.to(device)
-            data = target.to(device)
+            target = target.to(device)
             
             total_loss += self.loss_script(data,target).item()
         loss = total_loss / len(self.dataloader)

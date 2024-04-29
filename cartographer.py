@@ -403,7 +403,7 @@ class Cartographer:
         for data, target in self.dataloader:
             # move the data and target to the device
             data = data.to(self.device)
-            data = target.to(self.device)
+            target = target.to(self.device)
             # compute the loss for the models we have loaded with jit.fork
             # create a dict of futures
             futures = {indices: torch.jit.fork(locus.loss_script, data, target)

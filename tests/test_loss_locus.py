@@ -9,8 +9,9 @@ from torchvision.datasets import MNIST
 from simple_cnn import SimpleCNN
 from loss_locus import LossLocus
 import datetime # used to break jit.scriptability for testing
+import numpy as np
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dataloader():
     # Use a standard MNIST normalization
     transform = transforms.Compose([
@@ -20,19 +21,34 @@ def dataloader():
     
     dataset = MNIST(root='./data', train=False, download=True, transform=transform)
 
-    return DataLoader(dataset, batch_size=64, shuffle=False)
+    # Specify the size of the subset you want, e.g., 100 samples
+    subset_size = 100
 
-@pytest.fixture
+    # Generate a random subset of indices
+    indices = np.random.choice(len(dataset), subset_size, replace=False)
+
+    # Create the subset dataset
+    subset_dataset = torch.utils.data.Subset(dataset, indices)
+
+    return DataLoader(subset_dataset, batch_size=64, shuffle=False)
+
+@pytest.fixture(scope="session")
 def criterion():
     return torch.nn.CrossEntropyLoss()
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def model():
     return SimpleCNN()
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def losslocus(model, criterion, dataloader):
     return LossLocus(model, criterion, dataloader)
+
+def test_data_loading_and_type(dataloader):
+    data, targets = next(iter(dataloader))
+
+    assert data.dtype == torch.float32, f"Data type should be float32, got {data.dtype}"
+    assert targets.dtype == torch.int64, f"Target type should be int64, got {targets.dtype}"
 
 def test_initialization(model,criterion, dataloader):
 
