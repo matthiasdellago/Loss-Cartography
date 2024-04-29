@@ -420,7 +420,7 @@ class Cartographer:
         torch.cuda.empty_cache()
 
     @staticmethod
-    def roughness(distances_w_0: array, losses: array) -> array:
+    def roughness(losses: array, distances_w_0: array) -> array:
         """
         TODO: Maybe it should be called 'grit' or 'grit size' instead of 'roughness'? Like sandpaper grit.
         or is the grit size of a landscape the scale at which the roughness is largest? no that's called particle size in sandpaper.
@@ -511,8 +511,7 @@ class Cartographer:
         Returns:
             plt.Figure: The figure containing the loss.
         """
-        # Create a figure
-        fig, ax = plt.subplots()
+        pass
 
         
     @staticmethod
@@ -528,6 +527,8 @@ class Cartographer:
 
         Returns:
             go.Figure: The figure containing the loss.
+
+        TODO: clean up the code.
         """
         
         # validate the input
@@ -537,6 +538,8 @@ class Cartographer:
             raise ValueError(f'Both losses and distances_w_0 must have the same shape, but got {losses.shape} and {distances.shape} respectively')
         if not all(distances_w_0[0] == 0):
             raise ValueError(f'The first column of distances_w_0 must be zero, but got {distances_w_0[0]} instead')
+        
+        _, NR_DIRS = losses.shape
 
         # copy the distances array, so that we can modify it
         distances = distances_w_0.copy()
@@ -549,7 +552,7 @@ class Cartographer:
         fig = go.Figure()
 
         # Adding traces
-        for i in range(distances.shape[1]):
+        for i in range(NR_DIRS):
             #ic(distances[:, i], losses[:, i])
             #ic(len(distances[:, i]), len(losses[:, i]))
             fig.add_trace(go.Scatter(
@@ -560,7 +563,6 @@ class Cartographer:
                 #marker = dict(symbol='cross')
             ))
 
-        # Update layout for better interactivity
         fig.update_layout(
             title='Loss Landscape',
             xaxis_title='Distance from Center',
@@ -582,27 +584,72 @@ class Cartographer:
 
         fig.update_xaxes(tickvals=tickvals, ticktext=ticktext)
 
-        # Center the axes around zero, so that we can start zooming out of the box
+        # Center the axes around the [center, loss(center)], so that we can start zooming out of the box
         # Calculate maximum distance for symmetric x-axis range
         max_distance = np.max(np.abs(distances))
 
-        # Calculate maximum loss for symmetric y-axis range
-        max_loss = np.max(np.abs(losses))
+        # y axis range: center on loss(center) and extend to the maximum loss
+        center_loss = losses[0, 0]
+        max_diff = np.max(np.abs(losses-center_loss))
 
         # Update x-axis and y-axis to be symmetric around zero
         fig.update_xaxes(range=[-max_distance, max_distance])
-        fig.update_yaxes(range=[-max_loss, max_loss])
+        fig.update_yaxes(range=[center_loss - max_diff, center_loss + max_diff])
 
         return fig
 
-    def plot_roughness(self) -> plt.Figure:
+    @staticmethod
+    def plot_roughness(roughness: array, distances: array) -> go.Figure:
         """
         Plots the roughness at different 'COARSE GRAIN SCALES' for multiple directions, as contained in the roughness array.
         
+        Args:
+            roughness (np.ndarray): The roughness array.
+                Dimensions: (num_scales-1, num_directions)
+            distances (np.ndarray): Distances without 0.
+                Dimensions: (num_scales, num_directions)
+
         Returns:
-            plt.Figure: The figure containing the roughness profiles plot.
+            go.Figure: The figure containing the roughness profiles plot.
         """
-        pass
+        # validate the input
+        if not isinstance(roughness, np.ndarray):
+            raise ValueError(f"The roughness must be a numpy array, but it is {type(roughness)}.")
+        if not isinstance(distances, np.ndarray):
+            raise ValueError(f"The distances must be a numpy array, but it is {type(distances)}.")
+
+        _, NR_DIRS = roughness.shape
+
+        # copy distances to avoid modifying the original array
+        distances = distances.copy()
+
+        # remove the longest distance, because there is no roughness value for it
+        distances = distances[:-1]
+
+        if not roughness.shape == distances.shape:
+            raise ValueError(f"The roughness and distances[:-1] must have the same shape, but they are {roughness.shape} and {distances.shape}.")
+        
+        # create the figure
+        fig = go.Figure()
+
+        # iterate over all directions and plot them
+        for i in range(NR_DIRS):
+            fig.add_trace(go.Scatter(
+                x=distances[:, i],
+                y=roughness[:, i],
+                mode='markers',
+                name=f'Direction {i}'
+            ))
+        
+        fig.update_layout(
+            title='Scale Dependent Roughness',
+            xaxis_title='Coarse Graining Scale',
+            yaxis_title='Roughness',
+            dragmode='zoom',
+            hovermode='closest'
+        )
+
+        return fig
 
     def _validate_inputs(
         self,

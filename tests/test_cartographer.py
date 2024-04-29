@@ -270,12 +270,12 @@ def test_roughness_in_vivo(cartographer):
     # check that the roughness is not nan
     assert not np.isnan(roughness).any(), "Roughness should not contain NaN values."
     
-def test_plot_loss_dummy(cartographer):
+def test_plot_profiles_dummy(cartographer):
     # get distances
     distances = cartographer.distances_w_0
     # make a random loss array, but take care that the first row is the same
     losses = np.abs(np.random.rand(*distances.shape))
-    losses[0, :] = 0
+    losses[0, :] = 0.1
     # plot
     fig = cartographer.plot_profiles(losses, distances)
 
@@ -283,9 +283,39 @@ def test_plot_loss_dummy(cartographer):
 
     assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
 
-# def test_roughness_measurement(model, dataset, criterion):
-#     # Test that the roughness measurement works as expected
-#     pass
+def test_plot_profiles_real(cartographer):
+    # measure profiles
+    cartographer.measure_profiles()
+    # plot
+    fig = cartographer.plot_profiles(cartographer.profiles, cartographer.distances_w_0)
+
+    assert fig is not None, "Plot should not be None"
+
+    assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
+
+def test_plot_roughness_dummy(cartographer):
+    # get distances
+    distances = cartographer.distances
+    # generate a random roughness array one less row
+    roughness = np.abs(np.random.rand(*distances[:-1].shape)) + 1
+    # plot
+    fig = cartographer.plot_roughness(roughness, distances)
+    
+    assert fig is not None, "Plot should not be None"
+
+    assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
+
+def test_plot_roughness_real(cartographer):
+    # measure profiles
+    cartographer.measure_profiles()
+    # calculate roughness
+    roughness = cartographer.roughness(losses=cartographer.profiles, distances=cartographer.distances)
+    # plot
+    fig = cartographer.plot_roughness(roughness, cartographer.distances)
+
+    assert fig is not None, "Plot should not be None"
+
+    assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
 
 # def test_full_workflow(model, dataset, criterion):
 #     # Test the full Cartographer workflow
