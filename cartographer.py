@@ -578,7 +578,7 @@ class Cartographer:
             fig.add_trace(go.Scatter(
                 x=distances[:, i], 
                 y=losses[:, i], 
-                mode='lines',   #+markers',
+                mode='lines+markers',
                 name=f'Direction {i+1}',
                 #marker = dict(symbol='cross')
             ))
@@ -664,6 +664,7 @@ class Cartographer:
         fig.update_layout(
             title='Scale Dependent Roughness',
             xaxis_title='Coarse Graining Scale',
+            xaxis_type='log',
             yaxis_title='Roughness',
             dragmode='zoom',
             hovermode='closest'
