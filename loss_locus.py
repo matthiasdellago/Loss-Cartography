@@ -32,6 +32,8 @@ class LossLocus():
     """
 
     def __init__(self, model: nn.Module, criterion: _Loss, dataloader: DataLoader) -> None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
         # validate inputs
         if not isinstance(model, nn.Module):
             raise TypeError(f"Model error: 'model' is of type {type(model)}, expected nn.Module.")
@@ -60,10 +62,14 @@ class LossLocus():
             # if the model is not jit.scriptable, fall back to the non-jit.scriptable version
             self.loss_script = model_w_crit
 
+        # move the model to the device
+        self.loss_script.to(device)
+
         # test if the model can process the input from the DataLoader with a sample
         try:
             # get the first data and target, but don't remove it from the DataLoader
             for data, target in self.dataloader:
+                data, target = data.to(device), target.to(device)
                 self.loss_script(data, target)
                 break # only need to test one
         except Exception as e:
