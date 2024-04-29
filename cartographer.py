@@ -402,8 +402,8 @@ class Cartographer:
         # loop over dataloader
         for data, target in self.dataloader:
             # move the data and target to the device
-            data.to(self.device)
-            target.to(self.device)
+            data = data.to(self.device)
+            data = target.to(self.device)
             # compute the loss for the models we have loaded with jit.fork
             # create a dict of futures
             futures = {indices: torch.jit.fork(locus.loss_script, data, target)
@@ -725,8 +725,8 @@ class Cartographer:
         try:
             model.to(device)
             criterion.to(device)
-            sample_input.to(device)
-            sample_target.to(device)
+            sample_input = sample_input.to(device)
+            sample_target= sample_target.to(device)
         except Exception as e:
             raise ValueError(f"Failed to load model, criterion, input or target to device: {str(e)}")
 

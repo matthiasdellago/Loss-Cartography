@@ -83,14 +83,13 @@ class LossLocus():
         Measures the loss of the model on the entire dataset.
         """
         total_loss = 0
-        with torch.no_grad(): # TODO: remove this line when I figure out a better way to turn grads off globally
-            for data, target in self.dataloader:
-                # load the data and target to the device
-                device = next(self.loss_script.parameters()).device
-                data.to(device)
-                target.to(device)
-                
-                total_loss += self.loss_script(data,target).item()
+        for data, target in self.dataloader:
+            # load the data and target to the device
+            device = next(self.loss_script.parameters()).device
+            data = data.to(device)
+            data = target.to(device)
+            
+            total_loss += self.loss_script(data,target).item()
         loss = total_loss / len(self.dataloader)
         return loss
 
