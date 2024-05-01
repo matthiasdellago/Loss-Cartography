@@ -81,10 +81,9 @@ class Cartographer:
         dataset: Dataset,
         criterion: _Loss,
         num_directions: int = 3,
-        pow_min_dist: int = -21,
-        pow_max_dist: int = 3,
+        min_oom: int = -9,
+        max_oom: int = 1,
     ) -> None:
-        print(f'Initializing Cartographer')
         # Turn gradients off
         torch.set_grad_enabled(False)
 
@@ -95,8 +94,10 @@ class Cartographer:
             self.device = torch.device('cpu')
             warn("No GPU available. Running on CPU.")
 
+        print(f'Initoialising Carographer on {self.device} device')
+
         # Validate the inputs
-        self._validate_inputs(self.device, model, dataset, criterion, num_directions, pow_min_dist, pow_max_dist)
+        self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
         self.dataloader = self.dataloader(self.device, dataset)
         self.model_class = model.__class__
@@ -105,12 +106,16 @@ class Cartographer:
         self.center = LossLocus(model, self.criterion, self.dataloader)
         
         self.DIRECTIONS = num_directions
-        self.POW_MIN_DIST = pow_min_dist
-        self.POW_MAX_DIST = pow_max_dist
-        self.SCALES = pow_max_dist - pow_min_dist + 1 # +1 because we include the endpoints
+        # convert min and max oom from powers of 10 to powers of 2
+        # log2(10) = 3.32...
+        # take the floor of the min and the ceil of the max, so that we definetely include the intended endpoints.
+        self.POW_MIN_DIST = int(np.floor(min_oom*np.log2(10)))
+        self.POW_MAX_DIST = int(np.ceil(max_oom*np.log2(10)))
+        self.SCALES = self.POW_MAX_DIST - self.POW_MIN_DIST + 1 # +1 because we include the endpoints
+
+        print(f'Cartographer initialised with {self.DIRECTIONS} directions and {self.SCALES} sampling distances')
 
         self.center.to(self.device)
-
 
         self.distances = self.generate_distances()
         self.distances.flags.writeable = False
@@ -512,18 +517,6 @@ class Cartographer:
     
     # @staticmethod
     # def map(profiles: array, distances_w_0: array) -> plt.Figure:
-    #     """
-    #     Plot the loss landscape.
-
-    #     Args:
-    #         profiles (array): The loss profiles measured along the some directions.
-    #             Dimensions: (num_scales+1, num_directions)
-    #         distances_w_0 (array): The distance of each point from the center, including the center. (ie. a row of 0s)
-    #             Dimensions: (num_scales+1, num_directions)
-
-    #     Returns:
-    #         plt.Figure: The figure containing the loss.
-    #     """
     #     pass
 
     def plot(self) -> None:
@@ -590,27 +583,6 @@ class Cartographer:
                 #marker = dict(symbol='cross')
             ))
 
-        fig.update_layout(
-            title='Loss Landscape',
-            xaxis_title='Distance from Center',
-            yaxis_title='Loss',
-            dragmode='zoom',
-            hovermode='closest'
-        )
-
-        # Customizing x-axis for powers of two, remove zero because of the log2
-        all_distances = distances[1:].flatten()
-        # Add powers of two for all oom that appear in the distances
-        # round all distances to the nearest power of two
-        powers_of_two = np.unique(np.round(np.log2(np.abs(all_distances)))).astype(int)
-        # turn into distances positive, negative and zero
-        tickvals = np.concatenate([-2. ** powers_of_two, [0], 2. ** powers_of_two])
-
-        #tickvals_exponent = np.sort(np.concatenate([tickvals, [0]]))
-        ticktext = [f"2^{int(np.log2(abs(x)))}" if x != 0 else '0' for x in tickvals]
-
-        fig.update_xaxes(tickvals=tickvals, ticktext=ticktext)
-
         # Center the axes around the [center, loss(center)], so that we can start zooming out of the box
         # Calculate maximum distance for symmetric x-axis range
         max_distance = np.max(np.abs(distances))
@@ -619,9 +591,20 @@ class Cartographer:
         center_loss = losses[0, 0]
         max_diff = np.max(np.abs(losses-center_loss))
 
-        # Update x-axis and y-axis to be symmetric around zero
-        fig.update_xaxes(range=[-max_distance, max_distance])
-        fig.update_yaxes(range=[center_loss - max_diff, center_loss + max_diff])
+        fig.update_layout(
+            title='Loss Landscape',
+            xaxis = dict(
+                title='Distance from Center',
+                range=[-max_distance, max_distance],
+                tickformat='.0e',
+            ),
+            yaxis = dict(
+                title='Loss',
+                range=[center_loss - max_diff, center_loss + max_diff],
+            ),
+            dragmode='zoom',
+            hovermode='closest'
+        )
 
         return fig
 

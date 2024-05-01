@@ -50,8 +50,8 @@ def criterion():
 
 @pytest.fixture
 def cartographer(model, dataset, criterion):
-    """A fixture that returns a small Cartographer object with 2 directions and a distance range of -1 to 1."""
-    return Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=-1, pow_max_dist=1)
+    """A fixture that returns a minimal Cartographer object with 2 directions and a scale range of 10^-1 to 10^0."""
+    return Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, min_oom=-1, max_oom=0)
 
 def test_data_loading_and_type(dataset):
     loader = DataLoader(dataset, batch_size=10, shuffle=False)
@@ -72,7 +72,7 @@ def test_validate_inputs(model, dataset, criterion):
     with pytest.raises(ValueError):
         Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=-1)
     with pytest.raises(ValueError):
-        Cartographer(model=model, dataset=dataset, criterion=criterion, pow_min_dist=3, pow_max_dist=1)
+        Cartographer(model=model, dataset=dataset, criterion=criterion, min_oom=-1, max_oom=-2)
     
     # TODO: These validation tests are not excellent. Improve or remove them.
 
@@ -101,7 +101,8 @@ def test_validate_inputs(model, dataset, criterion):
 def test_distance_generation_1(model, dataset, criterion):
     # Test that the distance generation works as expected
     # If num_directions is 1 and pow_min_dist and pow_max_dist are 0, the distances should be of shape (1, 1) and contain only 1.0
-    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=1, pow_min_dist=0, pow_max_dist=0)
+    # THIS FAILS IN THE CURRENT IMPLEMENTATION because we switched to inputs in the form of (min_oom, max_oom) [base 10] instead of (pow_min_dist, pow_max_dist)
+    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=1, min_oom=0, max_oom=0)
     distances = cartographer.generate_distances()
 
     assert isinstance(distances, np.ndarray), f"Expected type numpy.ndarray, but got {type(distances)}"
@@ -110,8 +111,8 @@ def test_distance_generation_1(model, dataset, criterion):
 
 def test_distance_generation_manual(model, dataset, criterion):
     # Test that the distance generation works as expected
-    # Caclculate distances by hand for num_directions=2, pow_min_dist=0 and pow_max_dist = 2
-    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, pow_min_dist=0, pow_max_dist=2)
+    # Caclculate distances by hand for num_directions=2, min_oom=0, max_oom=0
+    cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion, num_directions=2, min_oom=0, max_oom=1)
     distances = cartographer.generate_distances()
 
     # Hand calculated distances
@@ -119,10 +120,12 @@ def test_distance_generation_manual(model, dataset, criterion):
         [1.00, 1.41421356],
         [2.00, 2.82842712],
         [4.00, 5.65685425],
+        [8.00, 11.3137085],
+        [16.00, 22.62741699]
     ])
 
     assert isinstance(distances, np.ndarray), f"Expected type numpy.ndarray, but got {type(distances)}"
-    assert distances.shape == (3, 2), f"Unexpected shape: {distances.shape}, expected (3, 2)"
+    assert distances.shape == (5, 2), f"Unexpected shape: {distances.shape}, expected (3, 2)"
     assert np.allclose(distances, manual_distances), f"Unexpected values:\n{distances}\nExpected:\n{manual_distances}"
 
 def test_direction_generation(model, dataset, criterion):
