@@ -72,7 +72,8 @@ class Cartographer:
     TODO: Decide wether to return the results or store them in the class attributes, or both. Should all methods work the same way?
     TODO: Should I add a class that contains the loss function, so that we can compute the loss all in one go? Would help with jit.fork.
     TODO: Is keeping distances and distances_w_0 redundant ugly? should the methods add the zeros internally? it makes staticmethods easier though?
-    TODO: keep the user informed about the progress of the computation. Progress bars, and print
+    TODO: keep the user informed about the progress of the computation. Progress bars, and print.
+    TODO: enable the user to manage device? Implement .to() method for cartographer?
     """
     def __init__(
         self,
@@ -83,6 +84,7 @@ class Cartographer:
         pow_min_dist: int = -21,
         pow_max_dist: int = 3,
     ) -> None:
+        print(f'Initializing Cartographer')
         # Turn gradients off
         torch.set_grad_enabled(False)
 
@@ -145,6 +147,7 @@ class Cartographer:
         Returns:
             DataLoader: The largest possible DataLoader that can be loaded into the device memory.
         """
+        print(f"Creating DataLoader, trying to load as much of the dataset into the device memory as possible")
         # try to load the whole dataset to the device, if possible.
         denominator = 1
         while True:
@@ -179,7 +182,7 @@ class Cartographer:
             array: distances for each direction.
                 Dimensions: (num_scales, num_directions)
         """
-
+        print(f'Generating logarithmically spaced distances')
         # To avoid hitting special frequencies in the model, we use different step sizes for different directions.
         # This way we get a logarithmically spaced set of distances.
         dir_steps = 2. ** np.linspace(0, 1, self.DIRECTIONS, endpoint=False)
@@ -204,6 +207,7 @@ class Cartographer:
             [LossLocus]: A list containing the normalised direction vectors in locus objects.
                 Dimensions: (num_directions)
         """
+        print(f'Generating random directions to explore in parameter space')
         # Create a list of random models of the same class as the center model
         rand_models = [self.model_class() for _ in range(self.DIRECTIONS)]
 
