@@ -72,6 +72,7 @@ class Cartographer:
     TODO: Decide wether to return the results or store them in the class attributes, or both. Should all methods work the same way?
     TODO: Should I add a class that contains the loss function, so that we can compute the loss all in one go? Would help with jit.fork.
     TODO: Is keeping distances and distances_w_0 redundant ugly? should the methods add the zeros internally? it makes staticmethods easier though?
+    TODO: keep the user informed about the progress of the computation. Progress bars, and print
     """
     def __init__(
         self,
@@ -368,7 +369,7 @@ class Cartographer:
         Args:
             locus_batch {(int,int): jit.ScriptModule}: A dict of models to evaluate. The keys are tuples of indices (i_dist, i_dir).
         """
-        print(f"Evaluating batch of models. {locus_batch}")
+        print(f"Evaluating a batch of {len(locus_batch)} jit.ScriptModules in parallel")
 
         # validation
         if not isinstance(locus_batch, dict):
@@ -412,10 +413,7 @@ class Cartographer:
             for indices, future in futures.items():
                 i_dist, i_dir = indices
                 loss = future.wait()
-                print(f"Loss at distance {self.distances[i_dist][i_dir]} in direction {i_dir} is {loss}")
                 self.profiles[i_dist+1, i_dir] += loss.item() # the +1 is because the first entry is the center.
-
-        print(f"New profiles: {self.profiles}")
 
         # free GPU memory by clearing the locus_batch
         locus_batch.clear()
@@ -464,6 +462,9 @@ class Cartographer:
             array: roughness at each scale, in each direction.
                 Dimensions: (num_scales-1, num_directions), since no roughness can be calculated for the start and end points.
         """
+
+        print(f'Calculating roughness')
+
         # Validation
         if not isinstance(distances_w_0, np.ndarray):
             raise TypeError(f"Expected 'distances_w_0' type np.ndarray, got {type(distances_w_0)}")
@@ -525,6 +526,8 @@ class Cartographer:
         """
         Create and display all plots
         """
+        print(f'Plotting results')
+
         # Plot the loss profiles
         fig = self.plot_profiles(self.profiles, self.distances_w_0)
         fig.show()
@@ -664,7 +667,10 @@ class Cartographer:
         fig.update_layout(
             title='Scale Dependent Roughness',
             xaxis_title='Coarse Graining Scale',
-            xaxis_type='log',
+            xaxis=dict(
+                type='log',
+                exponentformat='power',
+            ),
             yaxis_title='Roughness',
             dragmode='zoom',
             hovermode='closest'
