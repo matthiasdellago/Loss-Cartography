@@ -125,8 +125,9 @@ class Cartographer:
 
         self.directions = self.generate_directions()
 
-        # init the profiles and roughness arrays, filled with NaNs
-        self.profiles = np.full((self.SCALES + 1, self.DIRECTIONS), np.nan)
+        # init the profiles array, filled with NaNs
+        # longdouble to avoid any precision artefacts.
+        self.profiles = np.full((self.SCALES + 1, self.DIRECTIONS), np.nan, dtype=np.longdouble)
 
     def __call__(self) -> None:
         """
@@ -207,6 +208,7 @@ class Cartographer:
         """
         Generates a set of random, normalised directions in the parameter space.
         TODO: Add the option to specify the directions, setting certain parameter groups to zero.
+        TODO: Add directions based on gradients.
 
         Returns:
             [LossLocus]: A list containing the normalised direction vectors in locus objects.
@@ -366,9 +368,6 @@ class Cartographer:
         # fill the profiles[0][:] with the loss at the center.
         self.profiles[0, :] = self.profiles[0, 0]
 
-        # normalize the profiles, by dividing by the number of samples in the dataloader.
-        self.profiles /= len(self.dataloader)
-
     def parallel_evaluate(self, locus_batch: {(int,int) : LossLocus}) -> None:
         """
         Evaluates the loss for a batch of models in parallel.
@@ -421,8 +420,8 @@ class Cartographer:
             # wait for the futures to complete
             for indices, future in futures.items():
                 i_dist, i_dir = indices
-                loss = future.wait()
-                self.profiles[i_dist+1, i_dir] += loss.item() # the +1 is because the first entry is the center.
+                loss = np.longdouble(future.wait().item())
+                self.profiles[i_dist+1, i_dir] += loss/len(self.dataloader) # the +1 is because the first entry is the center.
 
         # free GPU memory by clearing the locus_batch
         locus_batch.clear()
@@ -525,12 +524,18 @@ class Cartographer:
         """
         print(f'Plotting results')
 
+        # convert everything to double precision because plotly doesn't work with longdouble.
+        profiles64 = np.double(self.profiles)
+        distances_w_0_64 = np.double(self.distances_w_0)
+        roughness64 = np.double(self.roughness)
+        distances64 = np.double(self.distances)
+
         # Plot the loss profiles
-        fig = self.plot_profiles(self.profiles, self.distances_w_0)
+        fig = self.plot_profiles(profiles64, distances_w_0_64)
         fig.show()
 
         # Plot the roughness
-        fig = self.plot_roughness(self.roughness, self.distances)
+        fig = self.plot_roughness(roughness64, distances64)
         fig.show()
 
         

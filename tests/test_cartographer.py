@@ -177,6 +177,9 @@ def test_shift(model, dataset, criterion):
     # Assert that the shifted point is equal to the expected shifted point
     assert shifted.equal(expected_shifted)
 
+#def test_shift_resolution
+# How what is the smallest distance i can shift by without getting the same model?
+
 def test_measure_profiles_serial(cartographer):
     # Execute: Measure the profiles serially
     cartographer.measure_profiles_serial()

@@ -6,6 +6,7 @@ from torch.nn.modules.loss import _Loss
 from torch import jit
 from warnings import warn
 from copy import deepcopy
+import numpy as np
 
 class ModelwithCriterion(nn.Module):
     """
@@ -87,17 +88,20 @@ class LossLocus():
     def loss(self) -> float:
         """
         Measures the loss of the model on the entire dataset.
+        longdouble to avoid all precision errors.
         """
-        total_loss = 0
+        average_loss = np.longdouble(0.)
         for data, target in self.dataloader:
             # load the data and target to the device
             device = next(self.loss_script.parameters()).device
             data = data.to(device)
             target = target.to(device)
             
-            total_loss += self.loss_script(data,target).item()
-        loss = total_loss / len(self.dataloader)
-        return loss
+            loss = np.longdouble(self.loss_script(data,target).item())
+            # divide before adding the losses together, for numerical stability
+            average_loss += loss/len(self.dataloader)
+        
+        return average_loss
 
     
     def named_parameters(self) -> [(str, torch.Tensor)]:

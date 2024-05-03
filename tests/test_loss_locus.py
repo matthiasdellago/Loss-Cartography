@@ -100,7 +100,7 @@ def test_loss(model, criterion, dataloader):
     losslocus = LossLocus(model, criterion, dataloader) # create a new instance because fixtures can't be called
 
     loss = losslocus.loss()
-    assert isinstance(loss, float), "Loss is not a float."
+    assert isinstance(loss, np.longdouble), "Loss is not longdouble."
     
     loss2 = losslocus.loss()
     assert pytest.approx(loss, abs=1e-6) == loss2, "Loss calculation is not deterministic."
