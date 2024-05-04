@@ -15,9 +15,12 @@ class ModelwithCriterion(nn.Module):
     def __init__(self, model: nn.Module, criterion: _Loss) -> None:
         super(ModelwithCriterion, self).__init__()
         self.model = model
-        self.criterion = criterion
+        # double precision. otherwise we get precision errors in the loss landscape round e-7.
+        self.criterion = criterion.double()
     def forward(self, x: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        return self.criterion(self.model(x), target)
+        # convert forward pass to double precision
+        output = self.model(x).double()
+        return self.criterion(output, target)
 
 class LossLocus():
     """

@@ -94,7 +94,7 @@ class Cartographer:
             self.device = torch.device('cpu')
             warn("No GPU available. Running on CPU.")
 
-        print(f'Initoialising Carographer on {self.device} device')
+        print(f'Initialising Cartographer on {self.device} device')
 
         # Validate the inputs
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
@@ -168,7 +168,10 @@ class Cartographer:
             except RuntimeError as e:
                 # try with a smaller batch size
                 denominator += 1
-
+        if denominator > 1:
+            print(f'Split the dataset into {denominator} batches, each of size {len(dataset)//denominator}. Loaded first batch to device.')
+        else:
+            print(f'Loaded the whole dataset to device in a single batch.')
         return dataloader
 
 
@@ -353,7 +356,7 @@ class Cartographer:
                 locus.to(self.device) # TODO: is this necessary? or was the model already on the device because it was created from the center?
                 # add the model to the gpu_batch
                 gpu_batch[(i_dist, i_dir)] = locus
-                # if this pop the direction and distance from the stack
+                # if everything works, pop the direction and distance from the stack
                 stack.pop()
 
             # If we run out of memory, we will have to compute the loss for the models we have loaded.
@@ -554,6 +557,9 @@ class Cartographer:
             go.Figure: The figure containing the loss.
 
         TODO: clean up the code.
+        TODO: add typical learning rate ranges to the plot as vertical lines.
+        TODO: add minimum precision of float32 for loss(center) to the plot as two horizontal lines above and below the center loss
+        
         """
         
         # validate the input
