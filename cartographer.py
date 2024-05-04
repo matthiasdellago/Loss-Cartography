@@ -422,7 +422,9 @@ class Cartographer:
                 i_dist, i_dir = indices
                 loss = np.longdouble(future.wait().item())
                 # DEBUGGING:
+                print(f'================ DIST = {self.distances[i_dist][i_dir]} =================')
                 print(f"loss = {loss} +- {np.spacing(loss)}")
+                print(f'len(self.dataloader) = {len(self.dataloader)} +- {np.spacing(len(self.dataloader))}')
                 loss_contribution = loss/len(self.dataloader)
                 print(f"loss_contribution = {loss_contribution} +- {np.spacing(loss_contribution)}")
                 self.profiles[i_dist+1, i_dir] += loss/len(self.dataloader) # the +1 is because the first entry is the center.
