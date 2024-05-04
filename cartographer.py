@@ -353,7 +353,7 @@ class Cartographer:
                 locus.to(self.device) # TODO: is this necessary? or was the model already on the device because it was created from the center?
                 # add the model to the gpu_batch
                 gpu_batch[(i_dist, i_dir)] = locus
-                # if this pop the direction and distance from the stack
+                # if everything works, pop the direction and distance from the stack
                 stack.pop()
 
             # If we run out of memory, we will have to compute the loss for the models we have loaded.
@@ -421,6 +421,10 @@ class Cartographer:
             for indices, future in futures.items():
                 i_dist, i_dir = indices
                 loss = np.longdouble(future.wait().item())
+                # DEBUGGING:
+                print(f"loss = {loss} +- {np.ulp(loss)}")
+                loss_contribution = loss/len(self.dataloader)
+                print(f"loss_contribution = {loss_contribution} +- {np.ulp(loss_contribution)}")
                 self.profiles[i_dist+1, i_dir] += loss/len(self.dataloader) # the +1 is because the first entry is the center.
 
         # free GPU memory by clearing the locus_batch
