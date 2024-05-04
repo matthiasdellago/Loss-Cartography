@@ -171,7 +171,7 @@ class Cartographer:
         if denominator > 1:
             print(f'Split the dataset into {denominator} batches, each of size {len(dataset)//denominator}. Loaded first batch to device.')
         else:
-            print(f'Loaded the whole dataset to device in a single batch.')
+            print(f'Loaded the whole dataset to device in a single batch')
         return dataloader
 
 
