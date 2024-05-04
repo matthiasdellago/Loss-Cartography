@@ -422,9 +422,9 @@ class Cartographer:
                 i_dist, i_dir = indices
                 loss = np.longdouble(future.wait().item())
                 # DEBUGGING:
-                print(f"loss = {loss} +- {np.ulp(loss)}")
+                print(f"loss = {loss} +- {np.spacing(loss)}")
                 loss_contribution = loss/len(self.dataloader)
-                print(f"loss_contribution = {loss_contribution} +- {np.ulp(loss_contribution)}")
+                print(f"loss_contribution = {loss_contribution} +- {np.spacing(loss_contribution)}")
                 self.profiles[i_dist+1, i_dir] += loss/len(self.dataloader) # the +1 is because the first entry is the center.
 
         # free GPU memory by clearing the locus_batch
