@@ -64,8 +64,6 @@ class Cartographer:
         profiles (array): The loss profiles measured along the specified directions.
         roughness (array): The roughness profiles measured along the specified directions.
 
-    TODO: Make sure the model is always in evaluation mode, @torch.no_grad() and on the correct device.
-    What is the right level of abstraction to do this on?
     TODO: Consider what parts are best done on what device and move data accordingly.
     TODO: Consider how to parallelize the computation of the loss profiles. JIT? TorchScript?
     TODO: Should I replace numpy arrays with torch tensors for everything that touches the GPU?
