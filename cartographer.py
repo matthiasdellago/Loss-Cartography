@@ -98,7 +98,6 @@ class Cartographer:
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
         self.dataloader = DataLoader(dataset, batch_size=100, shuffle=False)
-        self.model_class = model.__class__
         self.criterion = criterion
 
         self.center = LossLocus(model, self.criterion, self.dataloader)
@@ -217,19 +216,13 @@ class Cartographer:
                 Dimensions: (num_directions)
         """
         print(f'Generating random directions to explore in parameter space')
-        # Create a list of random models of the same class as the center model
-        rand_models = [self.model_class() for _ in range(self.DIRECTIONS)]
-
-        # turn that into a list of LossLocus objects
-        directions = [LossLocus(model, self.criterion, self.dataloader) for model in rand_models]
+        
+        # Create a list of random, normalised loci in the parameter space
+        directions = [self.center.random_direction() for _ in range(self.DIRECTIONS)]
 
         # load the models to the device
         for direction in directions:
             direction.to(self.device)
-        
-        # Normalize the directions
-        for direction in directions:
-            direction /= abs(direction)
         
         return directions
 

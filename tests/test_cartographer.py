@@ -95,7 +95,6 @@ def test_validate_inputs(model, dataset, criterion):
 
     # Test that the Cartographer class accepts the input arguments correctly
     cartographer = Cartographer(model=model, dataset=dataset, criterion=criterion)
-    assert cartographer.model_class is model.__class__
     assert cartographer.criterion is criterion
 
 def test_distance_generation_1(model, dataset, criterion):

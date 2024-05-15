@@ -227,8 +227,18 @@ def test_error_handling_incompatible_operation(criterion, dataloader, losslocus)
 
     Linearlocus = LossLocus(MNISTLinearClassifier(), criterion, dataloader)
     
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError):
         _ = CNNlocus + Linearlocus
-        
-    print(exc_info.value)
 
+def test_random_direction(losslocus):
+    A = losslocus.random_direction()
+    B = losslocus.random_direction()
+    
+    assert not A.equal(losslocus), "Random parameters are equal to the original model."
+    assert not A.equal(B), "Random parameters are not unique."
+    assert pytest.approx(abs(A), abs=1e-6) == 1, "Random parameters are not normalised."
+    # check that the new parameters are randomly distributed between -1 and 1
+    for param in A.parameters():
+        assert torch.all(param >= -1) and torch.all(param <= 1), f"Random parameters {param} are not between -1 and 1."
+        assert torch.any(param > 0), f"There are no positive parameters in {param}."
+        assert torch.any(param < 0), f"There are no negative parameters in {param}."

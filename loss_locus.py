@@ -187,7 +187,7 @@ class LossLocus():
             norm += torch.norm(param).item() ** 2
         return norm ** 0.5
 
-    def equal(self, other: 'LossLocus', tol=1e-6) -> bool:
+    def equal(self, other: 'LossLocus', tol=1e-8) -> bool:
         """
         Compares this LossLocus with another for equality, within a tolerance.
         Not overloading __eq__ because that opens a can of worms with inheritance of __hash__.
@@ -232,4 +232,16 @@ class LossLocus():
         """
         result = self._clone()
         result /= scalar  # Utilizes the __idiv__ for in-place division on the clone
+        return result
+
+    def random_direction(self) -> 'LossLocus':
+        """
+        Returns a random, normalised instance of LossLocus in the same parameter space.
+        """
+        result = self._clone()
+        # randomise the parameters
+        for param in result.parameters():
+            param.data = torch.randn_like(param.data)
+        # normalise the parameters
+        result /= abs(result)
         return result
