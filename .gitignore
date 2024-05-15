@@ -1,29 +1,5 @@
 scratchpad.ipynb
 Loss_Cartography_Demo.ipynb
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong.html
-papers/vizualising_loss_landscape.pdf
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/allStyles
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/anchor.html
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/api.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/bundle.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/colorv2.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/css
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/fonts.css
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/gtm.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/icon
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/jvr1gjm.css
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/Ka1BqJ8qqr7GVFY8ckyfe5sDiZjR9d2vliJ-h9yILmk.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/player.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/recaptcha__en_gb.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/reset-min.css
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/saved_resource.html
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/saved_resource(1).html
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/saved_resource(2).html
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/styles__ltr.css
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/tex-mml-chtml.js
-papers/Thoughts on Loss Landscapes and why Deep Learning works — LessWrong_files/wtb8z7sj
-.obsidian/app.json
-.obsidian/appearance.json
-.obsidian/core-plugins-migration.json
-.obsidian/core-plugins.json
-.obsidian/workspace.json
+papers/
+.obsidian/
+cartographer_venv/
