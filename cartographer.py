@@ -319,6 +319,7 @@ class Cartographer:
 
         TODO: Add evaluation of the center to the profiles.
         """
+        print(f'Measuring losses in parallel, using torch.jit.fork')
 
         # create a stack of tuples indexing all directions and distances
         # We will iterate over this stack to load models into GPU memory.
