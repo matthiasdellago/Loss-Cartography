@@ -101,7 +101,7 @@ class Cartographer:
         self.criterion = criterion
 
         self.descr = f'{model.__class__.__name__} on {dataset.__class__.__name__}'
-        print(f'Exploring {self.descr}')
+        print(f'Charting the loss landscape of {self.descr}')
 
         self.center = LossLocus(model, self.criterion, self.dataloader)
         
