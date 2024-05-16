@@ -97,8 +97,7 @@ class Cartographer:
         # Validate the inputs
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
-        self.dataloader = self.dataloader(self.device, dataset)
-        # self.dataloader = DataLoader(dataset, batch_size=100, shuffle=False) # Simple alternative
+        self.dataloader = DataLoader(dataset, batch_size=10000, shuffle=False)
         self.criterion = criterion
 
         self.descr = f'{model.__class__.__name__} on {dataset.__class__.__name__}'
@@ -144,36 +143,37 @@ class Cartographer:
 
         self.plot()
     
-    @staticmethod
-    def dataloader(device: torch.device, dataset: Dataset) -> DataLoader:
-        """
-        See how much of the dataset can be loaded into the device memory.
-        TODO: what is the best way to proceed if device is CPU? does it matter?
-        TODO: we do something similar when we load the model to the device, load and catch the exception.
-        can we combine the try catch into a fixture or something similar?
-        Returns:
-            DataLoader: The largest possible DataLoader that can be loaded into the device memory.
-        """
-        print(f"Creating DataLoader, trying to load as much of the dataset into the device memory as possible")
-        # try to load the whole dataset to the device, if possible.
-        denominator = 1
-        while True:
-            try:
-                dataloader = DataLoader(dataset, batch_size=len(dataset)//denominator, shuffle=False)
-                data, target = next(iter(dataloader))
-                data.to(device)
-                target.to(device)
-                # if it works, break the loop
-                break
-            # if we run out of memory, catch the exception
-            except RuntimeError as e:
-                # try with a smaller batch size
-                denominator += 1
-        if denominator > 1:
-            print(f'Split the dataset into {denominator} batches, each of size {len(dataset)//denominator}. Loaded first batch to device.')
-        else:
-            print(f'Loaded the whole dataset to device in a single batch')
-        return dataloader
+    # TODO: Make this work as intended. This version causes a CUDA runtime error if the dataset + model is too large.
+    # @staticmethod
+    # def dataloader(device: torch.device, dataset: Dataset) -> DataLoader:
+    #     """
+    #     See how much of the dataset can be loaded into the device memory.
+    #     TODO: what is the best way to proceed if device is CPU? does it matter?
+    #     TODO: we do something similar when we load the model to the device, load and catch the exception.
+    #     can we combine the try catch into a fixture or something similar?
+    #     Returns:
+    #         DataLoader: The largest possible DataLoader that can be loaded into the device memory.
+    #     """
+    #     print(f"Creating DataLoader, trying to load as much of the dataset into the device memory as possible")
+    #     # try to load the whole dataset to the device, if possible.
+    #     denominator = 1
+    #     while True:
+    #         try:
+    #             dataloader = DataLoader(dataset, batch_size=len(dataset)//denominator, shuffle=False)
+    #             data, target = next(iter(dataloader))
+    #             data.to(device)
+    #             target.to(device)
+    #             # if it works, break the loop
+    #             break
+    #         # if we run out of memory, catch the exception
+    #         except RuntimeError as e:
+    #             # try with a smaller batch size
+    #             denominator += 1
+    #     if denominator > 1:
+    #         print(f'Split the dataset into {denominator} batches, each of size {len(dataset)//denominator}. Loaded first batch to device.')
+    #     else:
+    #         print(f'Loaded the whole dataset to device in a single batch')
+    #     return dataloader
 
 
     def generate_distances(self) -> array:
