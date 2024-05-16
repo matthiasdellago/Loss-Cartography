@@ -100,6 +100,9 @@ class Cartographer:
         self.dataloader = DataLoader(dataset, batch_size=100, shuffle=False)
         self.criterion = criterion
 
+        self.descr = f'{model.__class__.__name__} on {dataset.__class__.__name__}'
+        print(f'Exploring {self.descr}')
+
         self.center = LossLocus(model, self.criterion, self.dataloader)
         
         self.DIRECTIONS = num_directions
@@ -528,10 +531,12 @@ class Cartographer:
 
         # Plot the loss profiles
         fig = self.plot_profiles(profiles64, distances_w_0_64)
+        fig.layout.title = f'Loss Landscape of {self.descr}'
         fig.show()
 
         # Plot the roughness
         fig = self.plot_roughness(roughness64, distances64)
+        fig.layout.title = f'Scale Dependent Roughness of {self.descr}'
         fig.show()
 
         
@@ -596,7 +601,7 @@ class Cartographer:
         max_diff = np.max(np.abs(losses-center_loss))
 
         fig.update_layout(
-            title='Loss Landscape',
+            title=f'Loss Landscape',
             xaxis = dict(
                 title='Distance from Center',
                 range=[-max_distance, max_distance],
@@ -656,7 +661,7 @@ class Cartographer:
             ))
         
         fig.update_layout(
-            title='Scale Dependent Roughness',
+            title=f'Scale Dependent Roughness',
             xaxis_title='Coarse Graining Scale',
             xaxis=dict(
                 type='log',
