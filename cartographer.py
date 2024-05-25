@@ -97,7 +97,7 @@ class Cartographer:
         # Validate the inputs
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
-        self.dataloader = DataLoader(dataset, batch_size=10000, shuffle=False)
+        self.dataloader = DataLoader(dataset, batch_size=10000, shuffle=False, num_workers=4)
         self.criterion = criterion
 
         self.descr = f'{model.__class__.__name__} on {dataset.__class__.__name__}'
@@ -207,7 +207,7 @@ class Cartographer:
         assert distances.shape == (self.SCALES,self.DIRECTIONS)
 
         return distances
-            
+    
     def generate_directions(self) -> [LossLocus]:
         """
         Generates a set of random, normalised directions in the parameter space.
@@ -631,7 +631,7 @@ class Cartographer:
         Returns:
             go.Figure: The figure containing the roughness profiles plot.
         """
-        # validate the input
+        # validate the input, also account for float64
         if not isinstance(roughness, np.ndarray):
             raise ValueError(f"The roughness must be a numpy array, but it is {type(roughness)}.")
         if not isinstance(distances, np.ndarray):
