@@ -37,10 +37,10 @@ def mem_debug(func):
         
         end_time = time.perf_counter()
         s = timedelta(seconds=end_time - start_time).total_seconds()
-        time = (f"{s/3600:.2g}h" if s >= 3600 else f"{s/60:.2g}m" if s >= 60 else f"{s:.2g}s")
+        time_str = (f"{s/3600:.2g}h" if s >= 3600 else f"{s/60:.2g}m" if s >= 60 else f"{s:.2g}s")
 
         print_memory_info()
-        print(f"Finished '{func.__name__}' in {time}\n")
+        print(f"Finished '{func.__name__}' in {time_str}\n")
 
         return result
     return wrapper
