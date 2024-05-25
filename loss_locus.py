@@ -245,3 +245,12 @@ class LossLocus():
         # normalise the parameters
         result /= abs(result)
         return result
+    
+    def size(self) -> int:
+        """
+        Returns the number of bytes used by the parameters of the model.
+        """
+        size = 0
+        for param in self.parameters():
+            size += param.data.element_size() * param.data.numel()
+        return size
