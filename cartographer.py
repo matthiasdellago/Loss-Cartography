@@ -100,7 +100,7 @@ class Cartographer:
         # Validate the inputs
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
-        WORKERS = 4
+        WORKERS = 2
         BATCH_SIZE = 10000
         self.dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS)
         print(f'Created DataLoader with batch size {BATCH_SIZE} and {WORKERS} workers')
