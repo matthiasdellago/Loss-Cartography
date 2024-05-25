@@ -238,7 +238,7 @@ def test_roughness():
         [1, 1]
     ])
 
-    anomaly_roughness = Cartographer.roughness(distances_w_0 = distances_w_0, losses = anomaly_losses)
+    anomaly_roughness = Cartographer.measure_roughness(distances_w_0 = distances_w_0, losses = anomaly_losses)
 
     # the biggest "roughness" should be at in the first direction, at the second scale,
     # because while the loss is the same in both directions, the distance from the center is bigger in the first direction
@@ -254,17 +254,17 @@ def test_roughness():
         [0, 16]
     ])
 
-    lin_roughness = Cartographer.roughness(distances_w_0 = distances_w_0, losses = lin_losses)
+    lin_roughness = Cartographer.measure_roughness(distances_w_0 = distances_w_0, losses = lin_losses)
 
     # the roughness of both should be 1. everywhere, 
     assert np.all(lin_roughness == 1), "Roughness should be 1 for linear profiles"
 
     # test if the function raises an error if the losses array is not the same shape as the distances array
     with pytest.raises(ValueError):
-        Cartographer.roughness(distances_w_0 = distances_w_0, losses = lin_losses[:-1])
+        Cartographer.measure_roughness(distances_w_0 = distances_w_0, losses = lin_losses[:-1])
     # and vice versa
     with pytest.raises(ValueError):
-        Cartographer.roughness(distances_w_0 = distances_w_0[:-1], losses = lin_losses)
+        Cartographer.measure_roughness(distances_w_0 = distances_w_0[:-1], losses = lin_losses)
 
     # if the first row of losses is not the same, the function should raise an error
     wrong_losses = np.array([
@@ -276,19 +276,19 @@ def test_roughness():
     ])
 
     with pytest.raises(ValueError):
-        Cartographer.roughness(distances_w_0 = distances_w_0, losses = wrong_losses)
+        Cartographer.measure_roughness(distances_w_0 = distances_w_0, losses = wrong_losses)
 
     # if the distances are not always twice as big as the previous row, the function should raise an error
     wrong_distances = np.ones_like(distances_w_0)
 
     with pytest.raises(ValueError):
-        Cartographer.roughness(distances_w_0 = wrong_distances, losses = lin_losses)
+        Cartographer.measure_roughness(distances_w_0 = wrong_distances, losses = lin_losses)
     
 def test_roughness_in_vivo(cartographer):
     # measure profiles
     cartographer.measure_profiles()
     # calculate roughness
-    roughness = cartographer.roughness(distances_w_0=cartographer.distances_w_0, losses=cartographer.profiles)
+    roughness = cartographer.measure_roughness(distances_w_0=cartographer.distances_w_0, losses=cartographer.profiles)
     # check that the roughness is not nan
     assert not np.isnan(roughness).any(), "Roughness should not contain NaN values."
     
@@ -331,7 +331,7 @@ def test_plot_roughness_real(cartographer):
     # measure profiles
     cartographer.measure_profiles()
     # calculate roughness
-    roughness = cartographer.roughness(losses=cartographer.profiles, distances_w_0=cartographer.distances_w_0)
+    roughness = cartographer.measure_roughness(losses=cartographer.profiles, distances_w_0=cartographer.distances_w_0)
     # plot
     fig = cartographer.plot_roughness(roughness, cartographer.distances)
 
@@ -339,9 +339,9 @@ def test_plot_roughness_real(cartographer):
 
     assert isinstance(fig, go.Figure), f"Expected type go.Figure, but got {type(fig)}"
 
-def test__call__(cartographer):
+def test_run(cartographer):
     # does everything and opens results in browser on localhost
-    cartographer()
+    cartographer.run()
 
 # def test_no_grad(model, dataset, criterion):
 #     # Test that the gradients are off everywhere.

@@ -29,6 +29,7 @@ import numpy as np
 from numpy import array
 from warnings import warn
 import plotly.graph_objects as go
+from mem_debug import mem_debug # decorator for memory debugging
 
 class Cartographer:
     """
@@ -81,7 +82,9 @@ class Cartographer:
         num_directions: int = 3,
         min_oom: int = -9,
         max_oom: int = 1,
+        debug: bool = False
     ) -> None:
+        self.debug = debug
         # Turn gradients off
         torch.set_grad_enabled(False)
 
@@ -97,13 +100,21 @@ class Cartographer:
         # Validate the inputs
         self._validate_inputs(self.device, model, dataset, criterion, num_directions, min_oom, max_oom)
         # create the biggest possible dataloader that fits into the device memory
-        self.dataloader = DataLoader(dataset, batch_size=10000, shuffle=False, num_workers=4)
+        WORKERS = 4
+        BATCH_SIZE = 10000
+        self.dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=WORKERS)
+        print(f'Created DataLoader with batch size {BATCH_SIZE} and {WORKERS} workers')
+        if self.debug:
+            print(f'Each batch takes up {BATCH_SIZE*dataset[0][0].element_size()*1e-9} GB of memory')
+        
         self.criterion = criterion
 
         self.descr = f'{model.__class__.__name__} on {dataset.__class__.__name__}'
         print(f'Charting the loss landscape of {self.descr}')
 
         self.center = LossLocus(model, self.criterion, self.dataloader)
+        if self.debug:
+            print(f'Each model takes up {self.center.size()*1e-9} GB of memory')
         
         self.DIRECTIONS = num_directions
         # convert min and max oom from powers of 10 to powers of 2
@@ -114,6 +125,9 @@ class Cartographer:
         self.SCALES = self.POW_MAX_DIST - self.POW_MIN_DIST + 1 # +1 because we include the endpoints
 
         print(f'Cartographer initialised with {self.DIRECTIONS} directions and {self.SCALES} sampling distances')
+        print(f'Total number of loss measurements: {self.DIRECTIONS*self.SCALES + 1}')
+        if self.debug:
+            print(f'Total memory usage: {self.center.size()*(self.DIRECTIONS*self.SCALES+1)*1e-9} GB')
 
         self.center.to(self.device)
 
@@ -129,17 +143,17 @@ class Cartographer:
         # longdouble to avoid any precision artefacts.
         self.profiles = np.full((self.SCALES + 1, self.DIRECTIONS), np.nan, dtype=np.longdouble)
 
-    def __call__(self) -> None:
+    @mem_debug
+    def run(self) -> None:
         """
         Generates the locations in parameter space at which the loss
         will be measured, computes the loss profiles and roughness for each scale, and
         stores the results in the class attributes `profiles` and `roughness`.
 
         Then plots the loss profiles and roughness.
-        TODO: Think more about the usecase. Should init already do all this?
         """
         self.measure_profiles()
-        self.roughness = self.roughness(self.profiles, self.distances_w_0)
+        self.roughness = self.measure_roughness(self.profiles, self.distances_w_0)
 
         self.plot()
     
@@ -175,7 +189,7 @@ class Cartographer:
     #         print(f'Loaded the whole dataset to device in a single batch')
     #     return dataloader
 
-
+    @mem_debug
     def generate_distances(self) -> array:
         """
         Generate how far to step along the various directions.
@@ -208,6 +222,7 @@ class Cartographer:
 
         return distances
     
+    @mem_debug
     def generate_directions(self) -> [LossLocus]:
         """
         Generates a set of random, normalised directions in the parameter space.
@@ -263,6 +278,7 @@ class Cartographer:
 
         return shift
 
+    @mem_debug
     def measure_profiles(self) -> None:
         """
         Measures the loss profiles for all distances and directions, as well as the center.
@@ -281,6 +297,7 @@ class Cartographer:
         if np.any(np.isnan(self.profiles)):
             raise ValueError("An error occured during the measurement of the loss profiles. Some entries are still np.nan.")
 
+    @mem_debug
     def measure_profiles_serial(self) -> None:
         """
         Measures the loss profiles for all distances and directions, as well as the center.
@@ -308,7 +325,8 @@ class Cartographer:
         # fill the profiles[0][:] with the loss at the center.
         self.center.to(self.device)
         self.profiles[0, :] = self.center.loss()
-    
+ 
+    @mem_debug   
     def measure_profiles_parallel(self) -> None:
         """
         Measures the loss profiles for all distances and directions, as well as the center
@@ -367,6 +385,7 @@ class Cartographer:
         # fill the profiles[0][:] with the loss at the center.
         self.profiles[0, :] = self.profiles[0, 0]
 
+    @mem_debug
     def parallel_evaluate(self, locus_batch: {(int,int) : LossLocus}) -> None:
         """
         Evaluates the loss for a batch of models in parallel.
@@ -429,7 +448,7 @@ class Cartographer:
         torch.cuda.empty_cache()
 
     @staticmethod
-    def roughness(losses: array, distances_w_0: array) -> array:
+    def measure_roughness(losses: array, distances_w_0: array) -> array:
         """
         TODO: Maybe it should be called 'grit' or 'grit size' instead of 'roughness'? Like sandpaper grit.
         or is the grit size of a landscape the scale at which the roughness is largest? no that's called particle size in sandpaper.
@@ -539,7 +558,6 @@ class Cartographer:
         fig.layout.title = f'Scale Dependent Roughness of {self.descr}'
         fig.show()
 
-        
     @staticmethod
     def plot_profiles(losses: array, distances_w_0: array) -> go.Figure:
         """
@@ -674,6 +692,7 @@ class Cartographer:
 
         return fig
 
+    @mem_debug
     def _validate_inputs(
         self,
         device: torch.device,
