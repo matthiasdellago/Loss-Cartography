@@ -10,7 +10,8 @@ import numpy as np
 
 class ModelwithCriterion(nn.Module):
     """
-    Helper class: Wraps a model and a loss function into a single module.
+    Helper class: Wraps a model and a criterion into a single module.
+    Forward takes input and target, and returns the loss.
     """
     def __init__(self, model: nn.Module, criterion: _Loss) -> None:
         super(ModelwithCriterion, self).__init__()
