@@ -2,8 +2,9 @@
 	- Authors see that networks with smaller weights are sensitive to smaller perturbations. LL probably not isotropic, origin breaks symmetry.
 - Replicate learing rate scaling law. Is this the paper? [Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer](https://arxiv.org/pdf/2203.03466)
 	- See how roughness changes dependent on width of network
-- Try different nonlinearities
-	- And weird ones, like sines
+- Compare different nonlinearities and see if some are obviously 'better than others
+	- Follow progression of the field: tanh, sigmoid, ReLU, GeLU
+	- Do some wierd (obviously bad) ones as well: gaussian, sin
 - Try much more architectures
 - Idee von Kaj: Anstatt roughness, mean free pathlength anschauen. Für gegebene Schrittgröße: wie weit kann ich in Richtung x gehen, vor ich der loss größer wird.
 	- Alternativ wenn man was ähnlivheres zu curvature messen möchte: mit loss + grad*dist anstatt nur mit loss vergleichen.
