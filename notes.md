@@ -5,4 +5,7 @@
 - Try different nonlinearities
 	- And weird ones, like sines
 - Try much more architectures
-
+- Idee von Kaj: Anstatt roughness, mean free pathlength anschauen. Für gegebene Schrittgröße: wie weit kann ich in Richtung x gehen, vor ich der loss größer wird.
+	- Alternativ wenn man was ähnlivheres zu curvature messen möchte: mit loss + grad*dist anstatt nur mit loss vergleichen.
+	- Nachteil: jedes sample gibt nur ein bit an information: collision oder keine.
+	- trotzdem vielleicht interessant!
