@@ -10,3 +10,11 @@
 	- Alternativ wenn man was ähnlivheres zu curvature messen möchte: mit loss + grad*dist anstatt nur mit loss vergleichen.
 	- Nachteil: jedes sample gibt nur ein bit an information: collision oder keine.
 	- trotzdem vielleicht interessant!
+- Talk with Arturs:
+	- Hypotheses on what causes Rougness:
+		- Complicated decision boundaries/fitting a detailed function
+		- Numerical precision causes the increase of roughness towards the smaller scales
+			- Experiment: Reduce precision.
+		- More parameters/wider layers, cause more roughness. Compare to Tensor Programs.
+	- Check out previous work on Fourier analysis of networks.
+		- https://bmild.github.io/fourfeat/
