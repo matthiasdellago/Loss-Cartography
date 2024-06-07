@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader
+import os
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -48,9 +49,9 @@ SUBSPACES = ['fc1', 'weight', 'bias']
 
 #check if we are on GPU, otherwise just proof of concept
 if torch.cuda.is_available():
-    NUM_DIRS = 3
-    MAX_OOM = -1
-    MIN_OOM = -11 # go down until all roughness disappears due to numerical precision.
+    NUM_DIRS = 20
+    MAX_OOM = 2
+    MIN_OOM = -13 # go down until all roughness disappears due to numerical precision.
 else:
     NUM_DIRS = 0 # number of random directions to sample, in addition to the gradient ascent + descent, and radially in + out.
     MAX_OOM = 0 # maximum order of magnitude to sample
@@ -245,19 +246,17 @@ from torch import vmap
 
 # add the center model
 ensemble_list = [center] + list(df['Model'])
+df.drop(columns='Model', inplace=True)
 
-def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn.functional) -> torch.Tensor:
+def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn.functional, device:str) -> torch.Tensor:
 
     with profiler(f'Ensemble size: {len(ensemble_list)}', pad_char='-'):
 
+        [model.to(device) for model in ensemble_list]
+        
         # stack to prepare for vmap
-        params, buffers = stack_module_state(ensemble_list)
-
-        with profiler(f'Moving stacked ensemble to {device}'):
-            params = {name: tensor.to(device) for name, tensor in params.items()}
-            buffers = {name: tensor.to(device) for name, tensor in buffers.items()}
-
-        stacked_ensemble = (params, buffers)
+        stacked_ensemble = stack_module_state(ensemble_list)
+        del ensemble_list
 
         # Construct a "stateless" version of one of the models. It is "stateless" in
         # the sense that the parameters are meta Tensors and do not have storage.
@@ -266,9 +265,8 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         def meta_model_loss(params_and_buffers, data, target):
             """Compute the loss of a set of params on a batch of data, via the meta model"""
             predictions = functional_call(meta_model, params_and_buffers, (data,))
-            predictions = predictions.double() # double precision for better resoltion of small scales
-            loss = criterion(predictions, target)
-            return loss
+            predictions = predictions.double() # This has a significant effect!
+            return criterion(predictions, target)
 
         # define a loss function that takes the stacked ensemble params, data, and target
         # in_dims=(0, None, None) adds an ensemble dimension to the first argument 'params_and_buffers' but not to the other two arguments
@@ -291,13 +289,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
 
     return torch.mean(torch.stack(batch_losses), dim=0)
 
-loss_tensor = eval_ensemble(ensemble_list, dataloader, criterion)
-
-with profiler('Freeing Models'):
-    df.drop(columns='Model', inplace=True)
-    del ensemble_list
-    torch.cuda.empty_cache()
-
+loss_tensor = eval_ensemble(ensemble_list, dataloader, criterion, device)
 
 # %%
 # Convert the loss tensor to a list and unpack
@@ -360,15 +352,15 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
     grit_fig = go.Figure(layout={
         **common_layout,
         'title': f'Grit of {description}',
-        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale'},
+        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
         'yaxis': {'title': 'Grit'}
     })
     
     abs_grit_fig = go.Figure(layout={
         **common_layout,
         'title': f'Grit Magnitude of {description}',
-        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale'},
-        'yaxis': {'type': 'log', 'title': '|Grit|'}
+        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
+        'yaxis': {'type': 'log', 'title': '|Grit|', 'tickformat': '.0e'}
     })
 
     # Build all plots within one loop
@@ -401,4 +393,5 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
     return [profile_fig, grit_fig, abs_grit_fig]
 
 figs = plot(df, 'Simple MLP on MNIST')
-[fig.show() for fig in figs]
+for fig in figs:
+    fig.show()
