@@ -39,6 +39,11 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_wor
 # criterion functional
 criterion = F.cross_entropy
 
+# Do one SGD step to get the gradient?
+GRAD = False
+if not GRAD:
+    torch.set_grad_enabled(False)
+
 # parameter subspaces to investigate.
 # for each string, the union of all modules that contain the string in their name will be considered.
 # we will sample a random direction in that subspace + the gradient ascent and descent directions projected onto that subspace.
@@ -131,12 +136,24 @@ def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
     print_memory_usage('Before:')
     start = perf_counter()
     yield
-    print(f'>>> {perf_counter() - start:.2f} s to execute')
+
+    seconds = perf_counter() - start
+    print(f'>>> {seconds:.2f} s to execute')
     print_memory_usage('After: ')
-    print(f'Finished {description}'.center(length, pad_char))
+    print(f'Finished {description} in {seconds:.2f} s'.center(length, pad_char))
 
 
 # %%
+
+radial = normalize(center)
+
+dirs = {
+    'Radially Out': radial,
+    'Radially In': scale(radial,-1),
+    }
+
+# add random directions
+dirs.update({f'Random {i}': rand_like(center) for i in range(NUM_DIRS)})
 
 def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
     """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
@@ -154,7 +171,7 @@ def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLo
             loss.backward()
 
     optimizer.step()
-    # from this point on we won't need any gradients
+    # IMPORTANT: from this point on we won't need any gradients
     torch.set_grad_enabled(False)
 
     # calculate the direction of gradient decent from the model
@@ -162,21 +179,10 @@ def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLo
     dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
     return normalize(dir_ascent)
 
-dir_ascent = ascent_direction(center, criterion, dataloader)
-dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
-
-# %%
-radial = normalize(center)
-
-dirs = {
-    'Ascent': dir_ascent,
-    'Descent': dir_descent,
-    'Radially Out': radial,
-    'Radially In': scale(radial,-1),
-    }
-
-# add random directions
-dirs.update({f'Random {i}': rand_like(center) for i in range(NUM_DIRS)})
+if GRAD:
+    dir_ascent = ascent_direction(center, criterion, dataloader)
+    dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
+    dirs.update({'Ascent': dir_ascent,'Descent': dir_descent})
 
 # add projections of each dir in dirs onto each SUBSPACE
 for dir_name, direction in list(dirs.items()):
@@ -264,25 +270,17 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         # define a loss function that takes the stacked ensemble params, data, and target
         # in_dims=(0, None, None) adds an ensemble dimension to the first argument 'params_and_buffers' but not to the other two arguments
         vmap_loss = vmap(meta_model_loss, in_dims=(0, None, None))
-
-        # initialize accumulators for Kahan summation alorithm
-        # https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-        kahan_acc = 0
-        c = 0
-
+        
+        batch_losses = []  # List to store batch losses
 
         with profiler(f'Evaluating stacked ensemble on {device}'):
             for data, target in dataloader:
                 data, target = data.to(device), target.to(device)
                 batch_loss = vmap_loss(stacked_ensemble, data, target)
-                
-                # Kahan summation algorithm
-                # In practice, normal summation introduces errors up to 1e-12
-                # The smallest differences in loss we are measuring are 1e-16
-                y = batch_loss - c
-                t = kahan_acc + y
-                c = (t - kahan_acc) - y
-                kahan_acc = t
+                batch_losses.append(batch_loss)
+        
+        with profiler(f'Moving batch loss to cpu'):
+            stacked_losses = torch.stack(batch_losses).cpu().numpy()
 
         with profiler('Freeing data and target'):
             del data, target
@@ -291,14 +289,18 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         with profiler('Freeing stacked ensemble'):
             del stacked_ensemble
             torch.cuda.empty_cache()
-    
-    return kahan_acc/len(dataloader)
+        
+        # Summing in numpy for the more precise pairwise summation algorithm.
+        average_losses = stacked_losses.mean(axis=0)
+        assert average_losses.dtype == np.float64, "Ensure that the loss is calculated in double precision"
+        
+        return average_losses
 
-loss_tensor = eval_ensemble(ensemble_list, dataloader, criterion, device)
+ensemble_loss = eval_ensemble(ensemble_list, dataloader, criterion, device)
 
 # %%
-# Convert the loss tensor to a list and unpack
-center_loss, *dir_losses = loss_tensor.tolist()
+# Convert the loss to a list and unpack
+center_loss, *dir_losses = ensemble_loss.tolist()
 
 # Ensure the length of dir_losses matches the DataFrame length
 assert len(dir_losses) == len(df)
