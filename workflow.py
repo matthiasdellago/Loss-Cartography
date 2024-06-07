@@ -27,13 +27,10 @@ center = SimpleMLP()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Use a standard MNIST normalization
-transform = transforms.Compose([
+dataset = MNIST(root='./data', download=True, transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
-])
-
-dataset = MNIST(root='./data', download=True, transform=transform)
+]))
 BATCH_SIZE = 100
 num_workers = os.cpu_count()  # Adjust based on available CPU cores
 pin_memory = torch.cuda.is_available()  # Enable pinning if using CUDA
@@ -124,19 +121,19 @@ import torch
 import psutil
 
 @contextmanager
-def profiler(description:str, length:int=80, pad_char:str=':') -> None:
-    print('\n'+description.center(length, pad_char))
-    if torch.cuda.is_available():
-        print(f'GPU RAM before execution: Allocated: {torch.cuda.memory_allocated()/1e9:.2g} GB | Reserved: {torch.cuda.memory_reserved()/1e9:.2g} GB')
-    print(f'RAM before execution: Used: {psutil.virtual_memory().used/1e9:.2g} GB | Available: {psutil.virtual_memory().available/1e9:.2g} GB')
+def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
+    def print_memory_usage(prefix):
+        if torch.cuda.is_available():
+            print(f'{prefix} GPU RAM: Allocated: {torch.cuda.memory_allocated() / 1e9:.2g} GB | Reserved: {torch.cuda.memory_reserved() / 1e9:.2g} GB')
+        print(f'{prefix} RAM: Used: {psutil.virtual_memory().used / 1e9:.2g} GB | Available: {psutil.virtual_memory().available / 1e9:.2g} GB')
+
+    print('\n' + description.center(length, pad_char))
+    print_memory_usage('Before:')
     start = perf_counter()
-
     yield
-
-    if torch.cuda.is_available():
-        print(f'GPU RAM after execution:  Allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB | Reserved: {torch.cuda.memory_reserved()/1e9:.2f} GB')
-    print(f'RAM before execution: Used: {psutil.virtual_memory().used/1e9:.2g} GB | Available: {psutil.virtual_memory().available/1e9:.2g} GB')
-    print(f'Finished {description} in {perf_counter() - start:.2f} s'.center(length, pad_char))
+    print(f'>>> {perf_counter() - start:.2f} s to execute')
+    print_memory_usage('After: ')
+    print(f'Finished {description}'.center(length, pad_char))
 
 
 # %%
@@ -252,6 +249,8 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
 
     with profiler(f'Ensemble size: {len(ensemble_list)}', pad_char='-'):
 
+        ensemble_size = len(ensemble_list)
+
         [model.to(device) for model in ensemble_list]
         
         # stack to prepare for vmap
@@ -272,12 +271,27 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         # in_dims=(0, None, None) adds an ensemble dimension to the first argument 'params_and_buffers' but not to the other two arguments
         vmap_loss = vmap(meta_model_loss, in_dims=(0, None, None))
 
-        batch_losses = []
+        # initialize accumulators
+        kahan_acc = 0. #torch.zeros(ensemble_size, dtype=torch.double, device=device)
+        c = 0. #torch.zeros(ensemble_size, dtype=torch.double, device=device)
+        normal_acc = 0.
+
         with profiler(f'Evaluating stacked ensemble on {device}'):
             for data, target in dataloader:
                 data, target = data.to(device), target.to(device)
                 batch_loss = vmap_loss(stacked_ensemble, data, target)
-                batch_losses.append(batch_loss)
+                
+                # Kahan summation algorithm
+                # Standard summing differs from this by up to 1e-12
+                # The smallest differences between losses are on the order of 1e-16
+                # So we need to use Kahan summation to get the most accurate results
+                y = batch_loss - c
+                t = kahan_acc + y
+                c = (t - kahan_acc) - y
+                kahan_acc = t
+                
+                # normal summation
+                normal_acc += batch_loss
 
         with profiler('Freeing data and target'):
             del data, target
@@ -286,8 +300,26 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         with profiler('Freeing stacked ensemble'):
             del stacked_ensemble
             torch.cuda.empty_cache()
+        
+        kahan_mean = kahan_acc / len(dataloader)
+        normal_mean = normal_acc / len(dataloader)
+        
+        # Convert to numpy array for vectorized computation
+        kahan_mean_np = kahan_mean.cpu().numpy()
 
-    return torch.mean(torch.stack(batch_losses), dim=0)
+        # Compute pairwise absolute differences using broadcasting
+        diff_matrix = np.abs(kahan_mean_np[:, None] - kahan_mean_np)
+        np.fill_diagonal(diff_matrix, np.inf)  # Ignore self-comparisons
+        min_difference = np.min(diff_matrix)
+
+        print(f'Kahan accumulator: {kahan_mean}')
+        print(f'Normal accumulator: {normal_mean}')
+        print(f'Kahan accumulator - Normal accumulator: {kahan_mean - normal_mean}')
+        print(f'Maximum difference: {torch.max(torch.abs(kahan_mean - normal_mean))}')
+        print(f'Minimum difference between Kahan accumulated values: {min_difference}')
+        print(f'Minimum difference between Kahan , excluding 0: {np.min(diff_matrix[diff_matrix > 0])}')
+
+    return kahan_acc/len(dataloader)
 
 loss_tensor = eval_ensemble(ensemble_list, dataloader, criterion, device)
 
