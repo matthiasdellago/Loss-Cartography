@@ -271,10 +271,11 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         # in_dims=(0, None, None) adds an ensemble dimension to the first argument 'params_and_buffers' but not to the other two arguments
         vmap_loss = vmap(meta_model_loss, in_dims=(0, None, None))
 
-        # initialize accumulators
-        kahan_acc = 0. #torch.zeros(ensemble_size, dtype=torch.double, device=device)
-        c = 0. #torch.zeros(ensemble_size, dtype=torch.double, device=device)
-        normal_acc = 0.
+        # initialize accumulators for Kahan summation alorithm
+        # https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+        kahan_acc = 0
+        c = 0
+
 
         with profiler(f'Evaluating stacked ensemble on {device}'):
             for data, target in dataloader:
@@ -282,9 +283,8 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
                 batch_loss = vmap_loss(stacked_ensemble, data, target)
                 
                 # Kahan summation algorithm
-                # Standard summing differs from this by up to 1e-12
-                # The smallest differences between losses are on the order of 1e-16
-                # So we need to use Kahan summation to get the most accurate results
+                # In practice, normal summation introduces errors up to 1e-12
+                # The smallest differences in loss we are measuring are 1e-16
                 y = batch_loss - c
                 t = kahan_acc + y
                 c = (t - kahan_acc) - y
@@ -300,25 +300,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         with profiler('Freeing stacked ensemble'):
             del stacked_ensemble
             torch.cuda.empty_cache()
-        
-        kahan_mean = kahan_acc / len(dataloader)
-        normal_mean = normal_acc / len(dataloader)
-        
-        # Convert to numpy array for vectorized computation
-        kahan_mean_np = kahan_mean.cpu().numpy()
-
-        # Compute pairwise absolute differences using broadcasting
-        diff_matrix = np.abs(kahan_mean_np[:, None] - kahan_mean_np)
-        np.fill_diagonal(diff_matrix, np.inf)  # Ignore self-comparisons
-        min_difference = np.min(diff_matrix)
-
-        print(f'Kahan accumulator: {kahan_mean}')
-        print(f'Normal accumulator: {normal_mean}')
-        print(f'Kahan accumulator - Normal accumulator: {kahan_mean - normal_mean}')
-        print(f'Maximum difference: {torch.max(torch.abs(kahan_mean - normal_mean))}')
-        print(f'Minimum difference between Kahan accumulated values: {min_difference}')
-        print(f'Minimum difference between Kahan , excluding 0: {np.min(diff_matrix[diff_matrix > 0])}')
-
+    
     return kahan_acc/len(dataloader)
 
 loss_tensor = eval_ensemble(ensemble_list, dataloader, criterion, device)
