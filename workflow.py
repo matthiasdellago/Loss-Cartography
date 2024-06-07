@@ -33,8 +33,10 @@ transform = transforms.Compose([
 ])
 
 dataset = MNIST(root='./data', download=True, transform=transform)
-BATCH_SIZE = int(len(dataset)/10) # Big but not too big, because I think that the batch is duplicated for each model in the vmap-enselmble
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_workers = 2)
+BATCH_SIZE = 100
+num_workers = os.cpu_count()  # Adjust based on available CPU cores
+pin_memory = torch.cuda.is_available()  # Enable pinning if using CUDA
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=pin_memory)
 
 # criterion functional
 criterion = F.cross_entropy
@@ -56,10 +58,9 @@ else:
 
 print(f'Running on {device}')
 
-# %% [markdown]
+# %% 
 # Define utility functions for parameter space arithmetic. iadd is inplace, all others create a new model.
 
-# %%
 from copy import deepcopy
 
 @torch.no_grad
@@ -70,17 +71,11 @@ def iadd(a:nn.Module, b:nn.Module) -> nn.Module:
     return a
 
 @torch.no_grad
-def add(a_old:nn.Module, b:nn.Module) -> nn.Module:
-    """add the parameters of b to a"""
-    a = deepcopy(a_old)
-    return iadd(a, b)
-
-@torch.no_grad
-def scale(a_old:nn.Module, b:float) -> nn.Module:
-    """scale the parameters of a by b"""
+def scale(a_old:nn.Module, s:float) -> nn.Module:
+    """scale the parameters of a by s"""
     a = deepcopy(a_old)
     for a_param in a.parameters():
-        a_param.data.mul_(b)
+        a_param.data.mul_(s)
     return a
 
 @torch.no_grad
@@ -95,34 +90,33 @@ def abs(a:nn.Module) -> nn.Module:
     return torch.norm(torch.cat([param.data.flatten() for param in a.parameters()]))
 
 @torch.no_grad
-def normalise(a:nn.Module) -> nn.Module:
+def normalize(a:nn.Module) -> nn.Module:
     """normalize the parameters of a"""
     return scale(a, 1/abs(a))
 
 @torch.no_grad
 def rand_like(a: nn.Module) -> nn.Module:
-    """normalised random direction in the parameter space of the model."""
+    """normalized random direction in the parameter space of the model."""
     rand = deepcopy(a)
     for param in rand.parameters():
         param.data = torch.randn_like(param.data)
-    return normalise(rand)
+    return normalize(rand)
 
 @torch.no_grad
 def project_to_module(a: nn.Module, target_subspace: str) -> nn.Module:
     """
-    normalised projection onto the subspace of the model specified by `target_subspace`.
+    normalized projection onto the subspace of the model specified by `target_subspace`.
     subspace: Any parameter whose name contains the `target_subspace` string.
     """
     projection = deepcopy(a)
     for name, param in projection.named_parameters():
         if target_subspace not in name:
             param.data.zero_()
-    return normalise(projection)
-
-# %% [markdown]
-# Define profiling context manager: measure execution time and GPU RAM usage before and after.
+    return normalize(projection)
 
 # %%
+# Define profiling context manager: measure execution time and GPU RAM usage before and after.
+
 from time import perf_counter
 from contextlib import contextmanager
 import torch
@@ -135,7 +129,9 @@ def profiler(description:str, length:int=80, pad_char:str=':') -> None:
         print(f'GPU RAM before execution: Allocated: {torch.cuda.memory_allocated()/1e9:.2g} GB | Reserved: {torch.cuda.memory_reserved()/1e9:.2g} GB')
     print(f'RAM before execution: Used: {psutil.virtual_memory().used/1e9:.2g} GB | Available: {psutil.virtual_memory().available/1e9:.2g} GB')
     start = perf_counter()
+
     yield
+
     if torch.cuda.is_available():
         print(f'GPU RAM after execution:  Allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB | Reserved: {torch.cuda.memory_reserved()/1e9:.2f} GB')
     print(f'RAM before execution: Used: {psutil.virtual_memory().used/1e9:.2g} GB | Available: {psutil.virtual_memory().available/1e9:.2g} GB')
@@ -145,7 +141,7 @@ def profiler(description:str, length:int=80, pad_char:str=':') -> None:
 # %%
 
 def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
-    """Find the direction of gradient ascent for a given model, and return it as a normalised model."""
+    """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
     # create a model to find the gradient
     grad_model = deepcopy(model)
     grad_model = grad_model.to(device)
@@ -170,17 +166,15 @@ def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLo
 
     # calculate the direction of gradient decent from the model
     grad_model = grad_model.to('cpu')
-    dir_ascent = sub(model, grad_model)
-    dir_ascent = normalise(dir_ascent)
+    dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
+    dir_ascent = normalize(dir_ascent)
     return dir_ascent
 
 dir_ascent = ascent_direction(center, criterion, dataloader)
-dir_descent = scale(dir_ascent, -1)
-
-
+dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
 
 # %%
-radial = normalise(center)
+radial = normalize(center)
 
 dirs = {
     'Ascent': dir_ascent,
@@ -199,7 +193,7 @@ for dir_name, direction in list(dirs.items()):
         new_key = f'{dir_name} ⋅ P({subspace})'
         dirs[new_key] = projected_dir
 
-# check that they are all normalised
+# check that they are all normalized
 assert all(torch.isclose(abs(d), torch.tensor(1.0)) for d in dirs.values())
 
 # %%
@@ -233,7 +227,6 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
 
 df = dirs_and_dists(dirs.keys(), MIN_OOM, MAX_OOM)
 
-
 # %%
 
 # fill the dataframe with the models
@@ -244,11 +237,9 @@ for (dir_name, step), distance in df['Distance'].items():
     df.at[(dir_name, step), 'Model'] = location 
 
 
-# %% [markdown]
-# Parallel evaluation with vmap()
-# 
-
 # %%
+# Parallel evaluation with vmap()
+
 from torch.func import stack_module_state, functional_call
 from torch import vmap
 
@@ -323,31 +314,6 @@ for direction in df.index.get_level_values('Direction'):
 
 df.sort_index(inplace=True)
 
-# %% [markdown]
-# Consider the formula for the second derivative of the loss function around point x:
-# $$
-# l''(x) = \lim_{{h \to 0}} \frac{l(x) - 2l(x+h) + l(x+2h)}{h^2}
-# $$
-# 
-# Now let's consider this not as a limit but at a finite h.
-# $$
-# curvature(x,h) = \frac{l(x) - 2l(x+h) + l(x+2h)}{h^2}
-# $$
-# 
-# But this is not what we want: It has dimensions of $loss/distance^2$, and is obviously scale dependet - a curved scaled up by a factor $2$ has a curvature half as big.
-# To fix this we will multiply by $h$.
-# 
-# $$
-# h \cdot curvature(x,h) = \frac{l(x) - 2l(x+h) + l(x+2h)}{h}
-# $$
-# 
-# Now let's set x to x to our central model and calculate the curvature for different h's.
-# Each h is a different scale, and so we get scale dependent curvature. Let's call it "grit".
-# 
-# $$
-# Grit_{x}(h) = \frac{l(x) - 2l(x+h) + l(x+2h)}{h}
-# $$
-
 # %%
 df['Grit'] = np.nan
 
@@ -372,76 +338,59 @@ for direction, group in df.groupby(level='Direction'):
 
 print(df)
 
-# %%
-
 import plotly.graph_objects as go
 from typing import List
 
 def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
 
-    HEIGHT = 600
-    TEMPLATE = 'seaborn'
+    # Common layout settings
+    common_layout = {
+        'legend_title': 'Direction',
+        'template': 'seaborn',
+        'height': 600
+    }
 
-    figs = []
+    profile_fig = go.Figure(layout={
+        **common_layout,
+        'title': f'Loss Landscape Profiles of {description}',
+        'xaxis': {'title': 'Distance from Center in Parameter Space'},
+        'yaxis': {'title': 'Loss'}
+    })
+    
+    grit_fig = go.Figure(layout={
+        **common_layout,
+        'title': f'Grit of {description}',
+        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale'},
+        'yaxis': {'title': 'Grit'}
+    })
+    
+    abs_grit_fig = go.Figure(layout={
+        **common_layout,
+        'title': f'Grit Magnitude of {description}',
+        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale'},
+        'yaxis': {'type': 'log', 'title': '|Grit|'}
+    })
 
-    profile_fig = go.Figure()
-    figs.append(profile_fig)
-
-    # Plotting directly from grouped data
-    for direction, data in df.groupby(level='Direction'):
+    # Build all plots within one loop
+    grouped_data = df.groupby(level='Direction')
+    for direction, data in grouped_data:
+        # Profile plot
         profile_fig.add_trace(go.Scatter(
             y=data['Loss'],
             x=data['Distance'],
             mode='lines+markers',
             name=direction
         ))
-
-
-    # Set axis labels and title with adjusted figure dimensions
-    profile_fig.update_layout(
-        title=f'Loss Landscape Profiles of {description}',
-        xaxis_title='Distance from Center in Parameter Space',
-        yaxis_title='Loss',
-        legend_title='Direction',
-        template=TEMPLATE,
-        height=HEIGHT,
-    )
-
-
-    grit_fig = go.Figure()
-    figs.append(grit_fig)
-
-    # Plotting grit for each direction using grouped data
-    for direction, data in df.groupby(level='Direction'):
+    
+        # Grit plot
         grit_fig.add_trace(go.Scatter(
             x=data['Distance'],
             y=data['Grit'],
-            mode='markers',
+            mode='lines+markers',
             name=direction
         ))
 
-    # Set axis labels, title, and configure log scale on x-axis
-    grit_fig.update_layout(
-        title=f'Grit of {description}',
-        xaxis={
-            'title': 'Coarse Graining Scale',
-            'type': 'log',
-            'dtick': 1,  # Tick every power of ten
-        },
-        yaxis ={
-            'title': 'Grit',
-        },
-        legend_title='Direction',
-        template=TEMPLATE,
-        height=HEIGHT
-    )
-
-
-    abs_grit_fig = go.Figure()
-    figs.append(abs_grit_fig)
-
-    # Plotting roughness for each direction using grouped data
-    for direction, data in df.groupby(level='Direction'):
+        # Grit magnitude plot
         abs_grit_fig.add_trace(go.Scatter(
             x=data['Distance'],
             y=np.abs(data['Grit']),
@@ -449,27 +398,7 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
             name=direction
         ))
 
-    # Set axis labels, title, and configure log scale on x-axis
-    abs_grit_fig.update_layout(
-        title=f'Grit Magnitude of {description}',
-        xaxis={
-            'title': 'Coarse Graining Scale',
-            'type': 'log',
-            'dtick': 1,  # Tick every power of ten
-        },
-        yaxis ={
-            'title': '|Grit|',
-            'type': 'log',
-        },
-        legend_title='Direction',
-        template=TEMPLATE,
-        height=HEIGHT
-    )
-
-    return figs
+    return [profile_fig, grit_fig, abs_grit_fig]
 
 figs = plot(df, 'Simple MLP on MNIST')
-
 [fig.show() for fig in figs]
-
-# %%
