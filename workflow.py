@@ -51,8 +51,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_wor
 # criterion functional
 criterion = F.cross_entropy
 
-# Do one SGD step to get the gradient?
-GRAD = False
+# Do one SGD step to get the direction of gradient?
+GRAD = TRUE
 if not GRAD:
     torch.set_grad_enabled(False)
 
@@ -209,14 +209,14 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     """
     # How often do I need to double 10^MIN_OOM to reach 10^MAX_OOM?
     doublings = int(np.ceil((MAX_OOM - MIN_OOM) * np.log2(10)))
-    steps = np.arange(doublings)
+    steps = np.arange(doublings, dtype=np.float64)
 
     # Compute all the distances we need to sample.
     dists = 2**steps * 10**MIN_OOM
     
     # In order to sample the spaces between 2^scale and 2^(scale+1),
     # and uniformly sample the log-space, we multiply each direction by a different offset
-    offset_per_dir = np.logspace(base=2, start=0, stop=1, num=len(dir_names), endpoint=False)
+    offset_per_dir = np.logspace(base=2, start=0, stop=1, num=len(dir_names), endpoint=False, dtype=np.float64)
 
     # Compute the outer product of all offsets and distances.
     dists_per_dir = np.outer(offset_per_dir, dists)
@@ -324,7 +324,10 @@ def grit(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
     """
     assert np.all(2 == dist[2:]/dist[1:-1]), "Each distance must be twice the previous distance"
     
-    return (loss[0] - 2*loss[1:-1] + loss[2:]) / dist[1:-1]
+    values = (loss[0] - 2*loss[1:-1] + loss[2:]) / dist[1:-1]
+
+    assert values.dtype == np.float64, "Ensure that the grit is calculated in double precision"
+    return values
 
 # Calculate the grit, one direction at a time
 for direction, group in df.groupby(level='Direction'):
@@ -332,7 +335,7 @@ for direction, group in df.groupby(level='Direction'):
     loss = group['Loss'].to_numpy()
 
     # Calculate the grit values and pad with NaNs
-    grit_values = [np.nan] + list(grit(dist, loss)) + [np.nan]
+    grit_values = np.concatenate([[np.nan], grit(dist, loss), [np.nan]])
 
     # Update the DataFrame
     df.loc[(direction,), 'Grit'] = grit_values
