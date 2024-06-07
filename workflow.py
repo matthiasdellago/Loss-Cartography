@@ -5,7 +5,19 @@ import torch.nn.functional as F
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader
+import pandas as pd
+import numpy as np
 import os
+import plotly.graph_objects as go
+from typing import List
+from torch.func import stack_module_state, functional_call
+from torch import vmap
+from copy import deepcopy
+from time import perf_counter
+from contextlib import contextmanager
+import torch
+import psutil
+
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -28,9 +40,9 @@ center = SimpleMLP()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 dataset = MNIST(root='./data', download=True, transform=transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-]))
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ]))
 BATCH_SIZE = 100
 num_workers = os.cpu_count()  # Adjust based on available CPU cores
 pin_memory = torch.cuda.is_available()  # Enable pinning if using CUDA
@@ -63,8 +75,6 @@ print(f'Running on {device}')
 
 # %% 
 # Define utility functions for parameter space arithmetic. iadd is inplace, all others create a new model.
-
-from copy import deepcopy
 
 @torch.no_grad
 def iadd(a:nn.Module, b:nn.Module) -> nn.Module:
@@ -120,11 +130,7 @@ def project_to_module(a: nn.Module, target_subspace: str) -> nn.Module:
 # %%
 # Define profiling context manager: measure execution time and GPU RAM usage before and after.
 
-from time import perf_counter
-from contextlib import contextmanager
-import torch
-import psutil
-
+# TODO: Improve readability of the output
 @contextmanager
 def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
     def print_memory_usage(prefix):
@@ -195,8 +201,6 @@ for dir_name, direction in list(dirs.items()):
 assert all(torch.isclose(abs(d), torch.tensor(1.0)) for d in dirs.values())
 
 # %%
-import pandas as pd
-import numpy as np
 
 def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     """
@@ -237,9 +241,6 @@ for (dir_name, step), distance in df['Distance'].items():
 
 # %%
 # Parallel evaluation with vmap()
-
-from torch.func import stack_module_state, functional_call
-from torch import vmap
 
 # add the center model
 ensemble_list = [center] + list(df['Model'])
@@ -308,6 +309,7 @@ assert len(dir_losses) == len(df)
 # Add the directional losses to the DataFrame
 df['Loss'] = dir_losses
 
+# Add the center loss to the DataFrame at 'Distance' = 0
 for direction in df.index.get_level_values('Direction'):
     df.loc[(direction, 0), ['Distance', 'Loss']] = [0., center_loss]
 
@@ -336,9 +338,6 @@ for direction, group in df.groupby(level='Direction'):
     df.loc[(direction,), 'Grit'] = grit_values
 
 print(df)
-
-import plotly.graph_objects as go
-from typing import List
 
 def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
 
