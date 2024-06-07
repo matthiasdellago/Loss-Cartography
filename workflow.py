@@ -141,14 +141,10 @@ def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
 def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
     """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
     # create a model to find the gradient
-    grad_model = deepcopy(model)
-    grad_model = grad_model.to(device)
-
+    grad_model = deepcopy(model).to(device)
     optimizer = torch.optim.SGD(grad_model.parameters(), lr=1)
-    optimizer.zero_grad()
+    
     torch.set_grad_enabled(True)
-
-    # take a single step of gradient descent
     # gradient accumulate over the whole dataset
     with profiler('1 step of gradient descent over the whole dataset'):
         for data, target in dataloader:
@@ -158,15 +154,13 @@ def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLo
             loss.backward()
 
     optimizer.step()
-    # from this point on we wont need any gradients
+    # from this point on we won't need any gradients
     torch.set_grad_enabled(False)
-
 
     # calculate the direction of gradient decent from the model
     grad_model = grad_model.to('cpu')
     dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
-    dir_ascent = normalize(dir_ascent)
-    return dir_ascent
+    return normalize(dir_ascent)
 
 dir_ascent = ascent_direction(center, criterion, dataloader)
 dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
@@ -289,9 +283,6 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
                 t = kahan_acc + y
                 c = (t - kahan_acc) - y
                 kahan_acc = t
-                
-                # normal summation
-                normal_acc += batch_loss
 
         with profiler('Freeing data and target'):
             del data, target
