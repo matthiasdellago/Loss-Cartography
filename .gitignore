@@ -6,3 +6,4 @@ cartographer_venv/
 .vscode/
 __pycache__/
 data/
+github/workflows/ci.yml
