@@ -52,7 +52,7 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_wor
 criterion = F.cross_entropy
 
 # Do one SGD step to get the direction of gradient?
-GRAD = TRUE
+GRAD = True
 if not GRAD:
     torch.set_grad_enabled(False)
 
@@ -318,27 +318,31 @@ df.sort_index(inplace=True)
 # %%
 df['Grit'] = np.nan
 
-def grit(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
-    """
-    Calculate the roughness of a loss function at different scales.
-    """
-    assert np.all(2 == dist[2:]/dist[1:-1]), "Each distance must be twice the previous distance"
-    
-    values = (loss[0] - 2*loss[1:-1] + loss[2:]) / dist[1:-1]
+# TODO: https://en.wikipedia.org/wiki/Richardson_extrapolation can i use this to improve the finite difference estimate?
+# Or are there others ways for a more accurate estimate?
 
-    assert values.dtype == np.float64, "Ensure that the grit is calculated in double precision"
-    return values
+def finite_difference(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
+    """
+    Calculate the finite difference of 3 equally spaced points.
+    """   
+    return loss[0] - 2*loss[1:-1] + loss[2:]
 
 # Calculate the grit, one direction at a time
 for direction, group in df.groupby(level='Direction'):
     dist = group['Distance'].to_numpy()
     loss = group['Loss'].to_numpy()
 
-    # Calculate the grit values and pad with NaNs
-    grit_values = np.concatenate([[np.nan], grit(dist, loss), [np.nan]])
+    assert dist.dtype == np.float64
+    assert loss.dtype == np.float64
 
-    # Update the DataFrame
-    df.loc[(direction,), 'Grit'] = grit_values
+    finite_diff = finite_difference(dist, loss)
+    df.loc[(direction,), 'Finite Difference'] = np.concatenate([[np.nan], finite_diff, [np.nan]])
+
+    grit = finite_diff / dist[1:-1]
+    df.loc[(direction,), 'Grit'] = np.concatenate([[np.nan], grit, [np.nan]])
+
+    curvature = finite_diff / dist[1:-1]**2
+    df.loc[(direction,), 'Curvature'] = np.concatenate([[np.nan], curvature, [np.nan]])
 
 print(df)
 
@@ -358,19 +362,29 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
         'yaxis': {'title': 'Loss'}
     })
     
-    grit_fig = go.Figure(layout={
-        **common_layout,
-        'title': f'Grit of {description}',
-        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
-        'yaxis': {'title': 'Grit'}
-    })
+    # grit_fig = go.Figure(layout={
+    #     **common_layout,
+    #     'title': f'Grit of {description}',
+    #     'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
+    #     'yaxis': {'title': 'Grit'}
+    # })
+
+    finit_diff_figs = {"Finite Difference": go.Figure(), "Grit": go.Figure(), "Curvature": go.Figure()}
+
+    for name, fig in finit_diff_figs.items():
+        fig.update_layout({
+            **common_layout,
+            'title': f'|{name}| of {description}',
+            'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
+            'yaxis': {'type': 'log', 'title': f'|{name}|', 'tickformat': '.0e'},
+        })
     
-    abs_grit_fig = go.Figure(layout={
-        **common_layout,
-        'title': f'Grit Magnitude of {description}',
-        'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
-        'yaxis': {'type': 'log', 'title': '|Grit|', 'tickformat': '.0e'}
-    })
+    # abs_grit_fig = go.Figure(layout={
+    #     **common_layout,
+    #     'title': f'Grit Magnitude of {description}',
+    #     'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
+    #     'yaxis': {'type': 'log', 'title': '|Grit|', 'tickformat': '.0e'}
+    # })
 
     # Build all plots within one loop
     grouped_data = df.groupby(level='Direction')
@@ -383,23 +397,33 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
             name=direction
         ))
     
-        # Grit plot
-        grit_fig.add_trace(go.Scatter(
-            x=data['Distance'],
-            y=data['Grit'],
-            mode='lines+markers',
-            name=direction
-        ))
+        # # Grit plot
+        # grit_fig.add_trace(go.Scatter(
+        #     x=data['Distance'],
+        #     y=data['Grit'],
+        #     mode='lines+markers',
+        #     name=direction
+        # ))
 
-        # Grit magnitude plot
-        abs_grit_fig.add_trace(go.Scatter(
-            x=data['Distance'],
-            y=np.abs(data['Grit']),
-            mode='lines+markers',
-            name=direction
-        ))
 
-    return [profile_fig, grit_fig, abs_grit_fig]
+        # # Grit magnitude plot
+        # abs_grit_fig.add_trace(go.Scatter(
+        #     x=data['Distance'],
+        #     y=np.abs(data['Grit']),
+        #     mode='lines+markers',
+        #     name=direction
+        # ))
+
+        # Finite Difference plot
+        for name,fig in finit_diff_figs.items():
+            fig.add_trace(go.Scatter(
+                x=data['Distance'],
+                y=np.abs(data[name]),
+                mode='lines+markers',
+                name=direction
+            ))
+
+    return [profile_fig] + list(finit_diff_figs.values())
 
 figs = plot(df, 'Simple MLP on MNIST')
 for fig in figs:
