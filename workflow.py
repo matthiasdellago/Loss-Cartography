@@ -19,6 +19,7 @@ import torch
 import psutil
 
 
+
 class SimpleMLP(nn.Module):
     def __init__(self):
         super(SimpleMLP, self).__init__()
@@ -43,10 +44,7 @@ dataset = MNIST(root='./data', download=True, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
-BATCH_SIZE = 100
-num_workers = os.cpu_count()  # Adjust based on available CPU cores
-pin_memory = torch.cuda.is_available()  # Enable pinning if using CUDA
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=pin_memory)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=100, num_workers=os.cpu_count(), pin_memory=torch.cuda.is_available())
 
 # criterion functional
 criterion = F.cross_entropy
@@ -63,11 +61,11 @@ SUBSPACES = ['fc1', 'weight', 'bias']
 
 #check if we are on GPU, otherwise just proof of concept
 if torch.cuda.is_available():
-    NUM_DIRS = 20
+    RAND_DIRS = 20
     MAX_OOM = 2
     MIN_OOM = -13 # go down until all roughness disappears due to numerical precision.
 else:
-    NUM_DIRS = 0 # number of random directions to sample, in addition to the gradient ascent + descent, and radially in + out.
+    RAND_DIRS = 0 # number of random directions to sample, in addition to the gradient ascent + descent, and radially in + out.
     MAX_OOM = 0 # maximum order of magnitude to sample
     MIN_OOM = -1 # minimum order of magnitude to sample
 
@@ -150,55 +148,59 @@ def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
 
 
 # %%
+def directions(model: nn.Module, device: str, GRAD: bool=True, RAND_DIRS: int=2, SUBSPACES =[], dataloader: DataLoader = None, criterion = None):
 
-radial = normalize(center)
+    radial = normalize(center)
 
-dirs = {
-    'Radially Out': radial,
-    'Radially In': scale(radial,-1),
-    }
+    dirs = {
+        'Radially Out': radial,
+        'Radially In': scale(radial,-1),
+        }
 
-# add random directions
-dirs.update({f'Random {i}': rand_like(center) for i in range(NUM_DIRS)})
+    # add random directions
+    dirs.update({f'Random {i}': rand_like(center) for i in range(RAND_DIRS)})
 
-def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
-    """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
-    # create a model to find the gradient
-    grad_model = deepcopy(model).to(device)
-    optimizer = torch.optim.SGD(grad_model.parameters(), lr=1)
-    
-    torch.set_grad_enabled(True)
-    # gradient accumulate over the whole dataset
-    with profiler('1 step of gradient descent over the whole dataset'):
-        for data, target in dataloader:
-            data, target = data.to(device), target.to(device)
-            output = grad_model(data)
-            loss = criterion(output, target)
-            loss.backward()
+    def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
+        """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
+        # create a model to find the gradient
+        grad_model = deepcopy(model).to(device)
+        optimizer = torch.optim.SGD(grad_model.parameters(), lr=1)
+        
+        torch.set_grad_enabled(True)
+        with profiler('1 step of gradient descent over the whole dataset'):
+            for data, target in dataloader:
+                data, target = data.to(device), target.to(device)
+                output = grad_model(data)
+                loss = criterion(output, target)
+                loss.backward()
 
-    optimizer.step()
-    # IMPORTANT: from this point on we won't need any gradients
-    torch.set_grad_enabled(False)
+        optimizer.step()
+        # IMPORTANT: from this point on we won't need any gradients
+        torch.set_grad_enabled(False)
 
-    # calculate the direction of gradient decent from the model
-    grad_model = grad_model.to('cpu')
-    dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
-    return normalize(dir_ascent)
+        # calculate the direction of gradient decent from the model
+        grad_model = grad_model.cpu()
+        dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
+        return normalize(dir_ascent)
 
-if GRAD:
-    dir_ascent = ascent_direction(center, criterion, dataloader)
-    dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
-    dirs.update({'Ascent': dir_ascent,'Descent': dir_descent})
+    if GRAD:
+        dir_ascent = ascent_direction(center, criterion, dataloader)
+        dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
+        dirs.update({'Ascent': dir_ascent,'Descent': dir_descent})
 
-# add projections of each dir in dirs onto each SUBSPACE
-for dir_name, direction in list(dirs.items()):
-    for subspace in SUBSPACES:
-        projected_dir = project_to_module(direction, subspace)
-        new_key = f'{dir_name} ⋅ P({subspace})'
-        dirs[new_key] = projected_dir
+    # add projections of each dir in dirs onto each SUBSPACE
+    for dir_name, direction in list(dirs.items()):
+        for subspace in SUBSPACES:
+            projected_dir = project_to_module(direction, subspace)
+            new_key = f'{dir_name} ⋅ P({subspace})'
+            dirs[new_key] = projected_dir
 
-# check that they are all normalized
-assert all(torch.isclose(abs(d), torch.tensor(1.0)) for d in dirs.values())
+    # check that they are all normalized
+    assert all(torch.isclose(abs(d), torch.tensor(1.0)) for d in dirs.values())
+
+    return dirs
+
+dirs = directions(center, device, GRAD, RAND_DIRS, SUBSPACES, dataloader, criterion)
 
 # %%
 
@@ -316,11 +318,6 @@ for direction in df.index.get_level_values('Direction'):
 df.sort_index(inplace=True)
 
 # %%
-df['Grit'] = np.nan
-
-# TODO: https://en.wikipedia.org/wiki/Richardson_extrapolation can i use this to improve the finite difference estimate?
-# Or are there others ways for a more accurate estimate?
-
 def finite_difference(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
     """
     Calculate the finite difference of 3 equally spaced points.
@@ -361,13 +358,6 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
         'xaxis': {'title': 'Distance from Center in Parameter Space'},
         'yaxis': {'title': 'Loss'}
     })
-    
-    # grit_fig = go.Figure(layout={
-    #     **common_layout,
-    #     'title': f'Grit of {description}',
-    #     'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
-    #     'yaxis': {'title': 'Grit'}
-    # })
 
     finit_diff_figs = {"Finite Difference": go.Figure(), "Grit": go.Figure(), "Curvature": go.Figure()}
 
@@ -378,13 +368,6 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
             'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
             'yaxis': {'type': 'log', 'title': f'|{name}|', 'tickformat': '.0e'},
         })
-    
-    # abs_grit_fig = go.Figure(layout={
-    #     **common_layout,
-    #     'title': f'Grit Magnitude of {description}',
-    #     'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
-    #     'yaxis': {'type': 'log', 'title': '|Grit|', 'tickformat': '.0e'}
-    # })
 
     # Build all plots within one loop
     grouped_data = df.groupby(level='Direction')
@@ -396,25 +379,8 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
             mode='lines+markers',
             name=direction
         ))
-    
-        # # Grit plot
-        # grit_fig.add_trace(go.Scatter(
-        #     x=data['Distance'],
-        #     y=data['Grit'],
-        #     mode='lines+markers',
-        #     name=direction
-        # ))
 
-
-        # # Grit magnitude plot
-        # abs_grit_fig.add_trace(go.Scatter(
-        #     x=data['Distance'],
-        #     y=np.abs(data['Grit']),
-        #     mode='lines+markers',
-        #     name=direction
-        # ))
-
-        # Finite Difference plot
+        # Finite Difference plots
         for name,fig in finit_diff_figs.items():
             fig.add_trace(go.Scatter(
                 x=data['Distance'],
