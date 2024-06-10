@@ -32,6 +32,7 @@ class SimpleMLP(nn.Module):
         x = self.fc3(x)
         return x
 
+torch.set_grad_enabled(False)
 CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if CUDA else "cpu")
 
@@ -56,8 +57,6 @@ c = {
     'min_oom':  -13 if CUDA else -1,    # closest sample will be 10**min_oom from the center
 }
 
-# if grad is False, we don't need gradients
-torch.set_grad_enabled(c['grad'])
 print(f'Running on {c["device"]}')
 
 def directions(c:dict) -> dict:
@@ -86,22 +85,20 @@ def directions(c:dict) -> dict:
         """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
         # create a model to find the gradient
         grad_model = deepcopy(model).to(device)
-        optimizer = torch.optim.SGD(grad_model.parameters(), lr=1)
         
-        torch.set_grad_enabled(True)
-        with profiler('1 step of gradient descent over the whole dataset'):
-            for data, target in dataloader:
-                data, target = data.to(device), target.to(device)
-                output = grad_model(data)
-                loss = criterion(output, target)
-                loss.backward()
+        with torch.set_grad_enabled(True):
+            with profiler('1 step of gradient descent over the whole dataset'):
+                for data, target in dataloader:
+                    data, target = data.to(device), target.to(device)
+                    output = grad_model(data)
+                    loss = criterion(output, target)
+                    loss.backward()
 
-        optimizer.step()
-        torch.set_grad_enabled(False)
+        # we want the direction of ascent, as a model:
+        for param in grad_model.parameters():
+            param.data = param.grad.data
 
-        # calculate the direction of gradient decent from the model
-        dir_ascent = sub(model, grad_model) # from updated model to original model
-        return normalize(dir_ascent)
+        return normalize(grad_model)
 
     if c['grad']:
         dir_ascent = ascent_direction(c['center'], c['criterion'], c['dataloader'], c['device'])
