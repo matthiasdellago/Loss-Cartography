@@ -70,14 +70,12 @@ def directions(c:dict) -> dict:
     Contains:
     - Radially Out: The direction away from the center
     - Radially In: The direction towards the center
-    for i in range(config['rand_dirs']):
-        - Random i: Random directions
+    - Random i: Random directions
     if config['grad'] is True:
         - Ascent: The direction of gradient ascent
         - Descent: The direction of gradient descent
     for subspace in config['subspaces']:
-        for direction in directions:
-            - direction ⋅ P(subspace): The projection of each direction onto the subspace
+        - direction ⋅ P(subspace): The projection of each direction onto the subspace
     """
     radial = normalize(c['center'])
 
@@ -253,29 +251,37 @@ for direction in df.index.get_level_values('Direction'):
 
 df.sort_index(inplace=True)
 
-# %%
-def finite_difference(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
+def curvature_scale_analysis(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate the finite difference of 3 equally spaced points.
-    """   
-    return loss[0] - 2*loss[1:-1] + loss[2:]
+    Analyze the curvature, grit, and finite difference as a function of the scale of the coarse graining.
+    Add columns for 'Curvature', 'Grit', and 'Finite Difference'.
+    """
+    def finite_difference(dist: np.ndarray, loss: np.ndarray) -> np.ndarray:
+        """
+        Calculate the finite difference of 3 equally spaced points.
+        """   
+        return loss[0] - 2*loss[1:-1] + loss[2:]
 
-# Calculate the grit, one direction at a time
-for direction, group in df.groupby(level='Direction'):
-    dist = group['Distance'].to_numpy()
-    loss = group['Loss'].to_numpy()
+    # Calculate the grit, one direction at a time
+    for direction, group in df.groupby(level='Direction'):
+        dist = group['Distance'].to_numpy()
+        loss = group['Loss'].to_numpy()
 
-    assert dist.dtype == np.float64
-    assert loss.dtype == np.float64
+        assert dist.dtype == np.float64
+        assert loss.dtype == np.float64
 
-    finite_diff = finite_difference(dist, loss)
-    df.loc[(direction,), 'Finite Difference'] = np.concatenate([[np.nan], finite_diff, [np.nan]])
+        finite_diff = finite_difference(dist, loss)
+        df.loc[(direction,), 'Finite Difference'] = np.concatenate([[np.nan], finite_diff, [np.nan]])
 
-    grit = finite_diff / dist[1:-1]
-    df.loc[(direction,), 'Grit'] = np.concatenate([[np.nan], grit, [np.nan]])
+        grit = finite_diff / dist[1:-1]
+        df.loc[(direction,), 'Grit'] = np.concatenate([[np.nan], grit, [np.nan]])
 
-    curvature = finite_diff / dist[1:-1]**2
-    df.loc[(direction,), 'Curvature'] = np.concatenate([[np.nan], curvature, [np.nan]])
+        curvature = finite_diff / dist[1:-1]**2
+        df.loc[(direction,), 'Curvature'] = np.concatenate([[np.nan], curvature, [np.nan]])
+    
+    return df
+
+df = curvature_scale_analysis(df)
 
 df.head()
 
