@@ -1,4 +1,3 @@
-# %%
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,7 +14,7 @@ from torch import vmap
 from copy import deepcopy
 # custom modules
 from utils.profiler import profiler
-from utils.param_math import iadd, scale, sub, abs, normalize, rand_like, project_to_module
+from utils.param_math import iadd, scale, sub, norm, normalize, rand_like, project_to_module
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -59,14 +58,10 @@ c = {
 
 # if grad is False, we don't need gradients
 torch.set_grad_enabled(c['grad'])
-
 print(f'Running on {c["device"]}')
 
-# %%
 def directions(c:dict) -> dict:
     """
-    Dictionary of directions in parameter space, keyes = names of directions, values = normalized models.
-
     Contains:
     - Radially Out: The direction away from the center
     - Radially In: The direction towards the center
@@ -102,12 +97,10 @@ def directions(c:dict) -> dict:
                 loss.backward()
 
         optimizer.step()
-        # IMPORTANT: from this point on we won't need any gradients
         torch.set_grad_enabled(False)
 
         # calculate the direction of gradient decent from the model
-        # grad_model = grad_model.cpu()
-        dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
+        dir_ascent = sub(model, grad_model) # from updated model to original model
         return normalize(dir_ascent)
 
     if c['grad']:
@@ -123,13 +116,11 @@ def directions(c:dict) -> dict:
             dirs[new_key] = projected_dir
 
     # check that they are all normalized
-    assert all(torch.isclose(abs(d), torch.tensor(1.0)) for d in dirs.values())
+    assert all(torch.isclose(norm(d), torch.tensor(1.0)) for d in dirs.values())
 
     return dirs
 
 dirs = directions(c)
-
-# %%
 
 def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     """
@@ -158,7 +149,6 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
 
 df = dirs_and_dists(dirs.keys(), c['min_oom'], c['max_oom'])
 
-# %%
 @torch.no_grad
 def dists_to_models(df:pd.DataFrame, dirs:dict, center:nn.Module) -> pd.DataFrame:
     """
@@ -173,16 +163,13 @@ def dists_to_models(df:pd.DataFrame, dirs:dict, center:nn.Module) -> pd.DataFram
 
 df = dists_to_models(df, dirs, c['center'])
 
-# %%
-# Parallel evaluation with vmap()
-
 # add the center model
 ensemble_list = [c['center']] + list(df['Model'])
 df.drop(columns='Model', inplace=True)
 
 @torch.no_grad
 def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn.functional, device:torch.device) -> torch.Tensor:
-
+    """Parallel evaluation with vmap()"""
     with profiler(f'Ensemble size: {len(ensemble_list)}', pad_char='-'):
 
         ensemble_size = len(ensemble_list)
@@ -235,15 +222,8 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
 
 ensemble_loss = eval_ensemble(ensemble_list, c['dataloader'], c['criterion'], c['device'])
 
-# %%
 # Convert the loss to a list and unpack
-center_loss, *dir_losses = ensemble_loss.tolist()
-
-# Ensure the length of dir_losses matches the DataFrame length
-assert len(dir_losses) == len(df)
-
-# Add the directional losses to the DataFrame
-df['Loss'] = dir_losses
+center_loss, *df['Loss'] = ensemble_loss.tolist()
 
 # Add the center loss to the DataFrame at 'Distance' = 0
 for direction in df.index.get_level_values('Direction'):

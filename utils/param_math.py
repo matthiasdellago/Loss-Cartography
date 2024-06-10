@@ -26,14 +26,14 @@ def sub(a:nn.Module, b:nn.Module) -> nn.Module:
     return iadd(neg_b, a)
 
 @torch.no_grad
-def abs(a:nn.Module) -> nn.Module:
+def norm(a:nn.Module) -> nn.Module:
     """return the norm of the parameters of a"""
     return torch.norm(torch.cat([param.data.flatten() for param in a.parameters()]))
 
 @torch.no_grad
 def normalize(a:nn.Module) -> nn.Module:
     """normalize the parameters of a"""
-    return scale(a, 1/abs(a))
+    return scale(a, 1/norm(a))
 
 @torch.no_grad
 def rand_like(a: nn.Module) -> nn.Module:
