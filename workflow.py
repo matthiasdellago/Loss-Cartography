@@ -119,22 +119,34 @@ def project_to_module(a: nn.Module, target_subspace: str) -> nn.Module:
 # %%
 # Define profiling context manager: measure execution time and GPU RAM usage before and after.
 
-# TODO: Improve readability of the output
 @contextmanager
 def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
-    def print_memory_usage(prefix):
+    def get_memory_usage():
+        usage = {
+            'ram used ': psutil.virtual_memory().used / 1e9,
+            'ram avail': psutil.virtual_memory().available / 1e9
+        }
         if torch.cuda.is_available():
-            print(f'{prefix} GPU RAM: Allocated: {torch.cuda.memory_allocated() / 1e9:.2g} GB | Reserved: {torch.cuda.memory_reserved() / 1e9:.2g} GB')
-        print(f'{prefix} RAM: Used: {psutil.virtual_memory().used / 1e9:.2g} GB | Available: {psutil.virtual_memory().available / 1e9:.2g} GB')
+            usage.update({
+                'gpu alloc': torch.cuda.memory_allocated() / 1e9,
+                'gpu reser': torch.cuda.memory_reserved() / 1e9
+            })
+        return usage
 
     print('\n' + description.center(length, pad_char))
-    print_memory_usage('Before:')
+    before = get_memory_usage()
+    # print all the memory usage on the same line with consistent width
+    [print(f'{k}: {v:6.1f}', end=' | ') for k, v in before.items()]
+    print()
     start = perf_counter()
     yield
 
     seconds = perf_counter() - start
-    print(f'>>> {seconds:.2f} s to execute')
-    print_memory_usage('After: ')
+    after = get_memory_usage()
+    # print all the memory usage DIFFERENCES on the same line with a '+' or '-' sign
+    diff = {k: after[k] - v for k, v in before.items()}
+    [print(f'{k}: {v - before[k]:+6.1f}', end=' | ') for k, v in after.items()]
+    print()
     print(f'Finished {description} in {seconds:.2f} s'.center(length, pad_char))
 
 
@@ -353,7 +365,7 @@ for direction, group in df.groupby(level='Direction'):
     curvature = finite_diff / dist[1:-1]**2
     df.loc[(direction,), 'Curvature'] = np.concatenate([[np.nan], curvature, [np.nan]])
 
-print(df)
+df.head()
 
 def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
 
