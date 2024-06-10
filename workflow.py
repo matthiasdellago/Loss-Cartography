@@ -34,11 +34,12 @@ class SimpleMLP(nn.Module):
         return x
 
 CUDA = torch.cuda.is_available()
+DEVICE = torch.device("cuda" if CUDA else "cpu")
 
 # config dict for the experiment
 c = {
-    'center': SimpleMLP(),                          # the architecture, and parameters to be investigated
-    'device': torch.device("cuda" if CUDA else "cpu"),
+    'device': DEVICE,
+    'center': SimpleMLP().to(DEVICE),   # the point in parameter space to start from
     'dataloader': DataLoader(
         MNIST('./data', download=True, transform=transforms.Compose([
             transforms.ToTensor(),
@@ -183,7 +184,7 @@ def directions(c:dict) -> dict:
         torch.set_grad_enabled(False)
 
         # calculate the direction of gradient decent from the model
-        grad_model = grad_model.cpu()
+        # grad_model = grad_model.cpu()
         dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
         return normalize(dir_ascent)
 
@@ -263,17 +264,17 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
     with profiler(f'Ensemble size: {len(ensemble_list)}', pad_char='-'):
 
         ensemble_size = len(ensemble_list)
-
-        [model.to(device) for model in ensemble_list]
         
         # stack to prepare for vmap
-        stacked_ensemble = stack_module_state(ensemble_list)
+        with profiler('Stacking Ensemble'):
+          stacked_ensemble = stack_module_state(ensemble_list)
 
         # Construct a "stateless" version of one of the models. It is "stateless" in
         # the sense that the parameters are meta Tensors and do not have storage.
         meta_model = deepcopy(ensemble_list[0]).to('meta')
 
-        del ensemble_list
+        with profiler('Deleting Ensemble List'):
+          del ensemble_list
 
         def meta_model_loss(params_and_buffers, data, target):
             """Compute the loss of a set of params on a batch of data, via the meta model"""
@@ -287,7 +288,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         
         batch_losses = []  # List to store batch losses
 
-        with profiler(f'Evaluating stacked ensemble on {device}'):
+        with profiler(f'Evaluating stacked ensemble om {device}'):
             for data, target in dataloader:
                 data, target = data.to(device), target.to(device)
                 batch_loss = vmap_loss(stacked_ensemble, data, target)
