@@ -13,9 +13,8 @@ from typing import List
 from torch.func import stack_module_state, functional_call
 from torch import vmap
 from copy import deepcopy
-from time import perf_counter
-from contextlib import contextmanager
-import psutil
+# custom modules
+from utils.profiler import profiler
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -115,39 +114,6 @@ def project_to_module(a: nn.Module, target_subspace: str) -> nn.Module:
         if target_subspace not in name:
             param.data.zero_()
     return normalize(projection)
-
-# %%
-# Define profiling context manager: measure execution time and GPU RAM usage before and after.
-
-@contextmanager
-def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
-    def get_memory_usage():
-        usage = {
-            'ram used ': psutil.virtual_memory().used / 1e9,
-            'ram avail': psutil.virtual_memory().available / 1e9
-        }
-        if torch.cuda.is_available():
-            usage.update({
-                'gpu alloc': torch.cuda.memory_allocated() / 1e9,
-                'gpu reser': torch.cuda.memory_reserved() / 1e9
-            })
-        return usage
-
-    print('\n' + description.center(length, pad_char))
-    before = get_memory_usage()
-    # print all the memory usage on the same line with consistent width
-    [print(f'{k}: {v:6.1f}', end=' | ') for k, v in before.items()]
-    print()
-    start = perf_counter()
-    yield
-
-    seconds = perf_counter() - start
-    after = get_memory_usage()
-    # print all the memory usage DIFFERENCES on the same line with a '+' or '-' sign
-    diff = {k: after[k] - v for k, v in before.items()}
-    [print(f'{k}: {v - before[k]:+6.1f}', end=' | ') for k, v in after.items()]
-    print()
-    print(f'Finished {description} in {seconds:.2f} s'.center(length, pad_char))
 
 
 # %%
