@@ -3,9 +3,7 @@ import torch
 from time import perf_counter
 from contextlib import contextmanager
 
-"""
-Measure the time and memory usage of a block of code.
-"""
+"""Measure the time and memory usage of a block of code."""
 
 @contextmanager
 def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
