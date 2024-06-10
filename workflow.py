@@ -15,10 +15,7 @@ from torch import vmap
 from copy import deepcopy
 from time import perf_counter
 from contextlib import contextmanager
-import torch
 import psutil
-
-
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -36,40 +33,33 @@ class SimpleMLP(nn.Module):
         x = self.fc3(x)
         return x
 
-center = SimpleMLP()
+CUDA = torch.cuda.is_available()
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# config dict for the experiment
+c = {
+    'center': SimpleMLP(),                          # the architecture, and parameters to be investigated
+    'device': torch.device("cuda" if CUDA else "cpu"),
+    'dataloader': DataLoader(
+        MNIST('./data', download=True, transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])),
+        batch_size=100,
+        num_workers=os.cpu_count(),
+        pin_memory=CUDA,
+    ),
+    'criterion': F.cross_entropy,
+    'grad': True,                        # should we look in the direction of gradient ascent and descent?
+    'subspaces': ['fc1', 'weight', 'bias'], # project directions onto modules with these substrings in their names. See project_to_module()
+    'rand_dirs': 20 if CUDA else 0,     # number of random directions to add, in addition to the gradient and radial directions
+    'max_oom':    2 if CUDA else 0,     # furthest sample will be 10**max_oom from the center
+    'min_oom':  -13 if CUDA else -1,    # closest sample will be 10**min_oom from the center
+}
 
-dataset = MNIST(root='./data', download=True, transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ]))
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=100, num_workers=os.cpu_count(), pin_memory=torch.cuda.is_available())
+# if grad is False, we don't need gradients
+torch.set_grad_enabled(c['grad'])
 
-# criterion functional
-criterion = F.cross_entropy
-
-# Do one SGD step to get the direction of gradient?
-GRAD = True
-if not GRAD:
-    torch.set_grad_enabled(False)
-
-# parameter subspaces to investigate.
-# for each string, the union of all modules that contain the string in their name will be considered.
-# we will sample a random direction in that subspace + the gradient ascent and descent directions projected onto that subspace.
-SUBSPACES = ['fc1', 'weight', 'bias']
-
-#check if we are on GPU, otherwise just proof of concept
-if torch.cuda.is_available():
-    RAND_DIRS = 20
-    MAX_OOM = 2
-    MIN_OOM = -13 # go down until all roughness disappears due to numerical precision.
-else:
-    RAND_DIRS = 0 # number of random directions to sample, in addition to the gradient ascent + descent, and radially in + out.
-    MAX_OOM = 0 # maximum order of magnitude to sample
-    MIN_OOM = -1 # minimum order of magnitude to sample
-
-print(f'Running on {device}')
+print(f'Running on {c["device"]}')
 
 # %% 
 # Define utility functions for parameter space arithmetic. iadd is inplace, all others create a new model.
@@ -148,9 +138,23 @@ def profiler(description: str, length: int = 80, pad_char: str = ':') -> None:
 
 
 # %%
-def directions(model: nn.Module, device: str, GRAD: bool=True, RAND_DIRS: int=2, SUBSPACES =[], dataloader: DataLoader = None, criterion = None):
+def directions(c:dict) -> dict:
+    """
+    Dictionary of directions in parameter space, keyes = names of directions, values = normalized models.
 
-    radial = normalize(center)
+    Contains:
+    - Radially Out: The direction away from the center
+    - Radially In: The direction towards the center
+    for i in range(config['rand_dirs']):
+        - Random i: Random directions
+    if config['grad'] is True:
+        - Ascent: The direction of gradient ascent
+        - Descent: The direction of gradient descent
+    for subspace in config['subspaces']:
+        for direction in directions:
+            - direction ⋅ P(subspace): The projection of each direction onto the subspace
+    """
+    radial = normalize(c['center'])
 
     dirs = {
         'Radially Out': radial,
@@ -158,9 +162,9 @@ def directions(model: nn.Module, device: str, GRAD: bool=True, RAND_DIRS: int=2,
         }
 
     # add random directions
-    dirs.update({f'Random {i}': rand_like(center) for i in range(RAND_DIRS)})
+    dirs.update({f'Random {i}': rand_like(radial) for i in range(c['rand_dirs'])})
 
-    def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader) -> nn.Module:
+    def ascent_direction(model:nn.Module, criterion:nn.functional, dataloader:DataLoader, device:torch.device) -> nn.Module:
         """Find the direction of gradient ascent for a given model, and return it as a normalized model."""
         # create a model to find the gradient
         grad_model = deepcopy(model).to(device)
@@ -183,14 +187,14 @@ def directions(model: nn.Module, device: str, GRAD: bool=True, RAND_DIRS: int=2,
         dir_ascent = sub(model, grad_model) # from updated model to original model, back up the gradient
         return normalize(dir_ascent)
 
-    if GRAD:
-        dir_ascent = ascent_direction(center, criterion, dataloader)
+    if c['grad']:
+        dir_ascent = ascent_direction(c['center'], c['criterion'], c['dataloader'], c['device'])
         dir_descent = scale(dir_ascent, -1) # descent = -1*ascent
         dirs.update({'Ascent': dir_ascent,'Descent': dir_descent})
 
     # add projections of each dir in dirs onto each SUBSPACE
     for dir_name, direction in list(dirs.items()):
-        for subspace in SUBSPACES:
+        for subspace in c['subspaces']:
             projected_dir = project_to_module(direction, subspace)
             new_key = f'{dir_name} ⋅ P({subspace})'
             dirs[new_key] = projected_dir
@@ -200,7 +204,7 @@ def directions(model: nn.Module, device: str, GRAD: bool=True, RAND_DIRS: int=2,
 
     return dirs
 
-dirs = directions(center, device, GRAD, RAND_DIRS, SUBSPACES, dataloader, criterion)
+dirs = directions(c)
 
 # %%
 
@@ -229,26 +233,32 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     # Create DataFrame directly with the computed distances.
     return pd.DataFrame({'Distance': dists_per_dir.flatten()}, index=multi_index)
 
-df = dirs_and_dists(dirs.keys(), MIN_OOM, MAX_OOM)
+df = dirs_and_dists(dirs.keys(), c['min_oom'], c['max_oom'])
 
 # %%
+@torch.no_grad
+def dists_to_models(df:pd.DataFrame, dirs:dict, center:nn.Module) -> pd.DataFrame:
+    """
+    Fill the DataFrame with the models corresponding to the distances in the 'Distance' column.
+    """
+    for (dir_name, step), distance in df['Distance'].items():
+        direction = dirs[dir_name]
+        shift = scale(direction,distance) # shift = direction * distance
+        location = iadd(shift, center)    # location = center + shift
+        df.at[(dir_name, step), 'Model'] = location
+    return df
 
-# fill the dataframe with the models
-for (dir_name, step), distance in df['Distance'].items():
-    direction = dirs[dir_name]
-    shift = scale(direction,distance) # shift = direction * distance
-    location = iadd(shift, center)    # location = center + shift
-    df.at[(dir_name, step), 'Model'] = location 
-
+df = dists_to_models(df, dirs, c['center'])
 
 # %%
 # Parallel evaluation with vmap()
 
 # add the center model
-ensemble_list = [center] + list(df['Model'])
+ensemble_list = [c['center']] + list(df['Model'])
 df.drop(columns='Model', inplace=True)
 
-def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn.functional, device:str) -> torch.Tensor:
+@torch.no_grad
+def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn.functional, device:torch.device) -> torch.Tensor:
 
     with profiler(f'Ensemble size: {len(ensemble_list)}', pad_char='-'):
 
@@ -258,11 +268,12 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         
         # stack to prepare for vmap
         stacked_ensemble = stack_module_state(ensemble_list)
-        del ensemble_list
 
         # Construct a "stateless" version of one of the models. It is "stateless" in
         # the sense that the parameters are meta Tensors and do not have storage.
-        meta_model = deepcopy(center).to('meta')
+        meta_model = deepcopy(ensemble_list[0]).to('meta')
+
+        del ensemble_list
 
         def meta_model_loss(params_and_buffers, data, target):
             """Compute the loss of a set of params on a batch of data, via the meta model"""
@@ -299,7 +310,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         
         return average_losses
 
-ensemble_loss = eval_ensemble(ensemble_list, dataloader, criterion, device)
+ensemble_loss = eval_ensemble(ensemble_list, c['dataloader'], c['criterion'], c['device'])
 
 # %%
 # Convert the loss to a list and unpack
