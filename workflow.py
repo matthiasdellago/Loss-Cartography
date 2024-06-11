@@ -32,7 +32,17 @@ class SimpleMLP(nn.Module):
         x = self.fc3(x)
         return x
 
-torch.set_default_dtype(torch.float64) # double precision global default, SUPER IMOPRTANT!
+torch.set_default_dtype(torch.float64) # double precision global default
+# SUPER IMPORTANT
+# float64:  - Finite differences noise on the oom of 1e-15.
+#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-6
+#           - Example takes 350 seconds
+#           - ca. 9 GB GPU RAM
+# float23:  - Finite differences noise on the oom of 1e-8.
+#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-3
+#           - Example takes 35 seconds
+#           - ca. 4.5 GB GPU RAM
+
 torch.set_grad_enabled(False)
 CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if CUDA else "cpu")
@@ -114,7 +124,7 @@ def directions(c:dict) -> dict:
             dirs[new_key] = projected_dir
 
     # check that they are all normalized
-    assert all(np.isclose(norm(d), 1.) for d in dirs.values())
+    assert all(torch.isclose(norm(d), torch.tensor(1.)) for d in dirs.values())
 
     return dirs
 
