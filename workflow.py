@@ -32,6 +32,7 @@ class SimpleMLP(nn.Module):
         x = self.fc3(x)
         return x
 
+torch.set_default_dtype(torch.float64) # double precision global default, SUPER IMOPRTANT!
 torch.set_grad_enabled(False)
 CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if CUDA else "cpu")
@@ -113,7 +114,7 @@ def directions(c:dict) -> dict:
             dirs[new_key] = projected_dir
 
     # check that they are all normalized
-    assert all(torch.isclose(norm(d), torch.tensor(1.0)) for d in dirs.values())
+    assert all(np.isclose(norm(d), 1.) for d in dirs.values())
 
     return dirs
 
@@ -126,14 +127,14 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     """
     # How often do I need to double 10^MIN_OOM to reach 10^MAX_OOM?
     doublings = int(np.ceil((MAX_OOM - MIN_OOM) * np.log2(10)))
-    steps = np.arange(doublings, dtype=np.float64)
+    steps = np.arange(doublings)
 
     # Compute all the distances we need to sample.
     dists = 2**steps * 10**MIN_OOM
     
     # In order to sample the spaces between 2^scale and 2^(scale+1),
     # and uniformly sample the log-space, we multiply each direction by a different offset
-    offset_per_dir = np.logspace(base=2, start=0, stop=1, num=len(dir_names), endpoint=False, dtype=np.float64)
+    offset_per_dir = np.logspace(base=2, start=0, stop=1, num=len(dir_names), endpoint=False)
 
     # Compute the outer product of all offsets and distances.
     dists_per_dir = np.outer(offset_per_dir, dists)
@@ -185,7 +186,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         def meta_model_loss(params_and_buffers, data, target):
             """Compute the loss of a set of params on a batch of data, via the meta model"""
             predictions = functional_call(meta_model, params_and_buffers, (data,))
-            predictions = predictions.double() # This has a significant effect!
+            predictions = predictions.double() # This has a significant effect! If not torch.set_default_dtype(torch.float64) anyway
             return criterion(predictions, target)
 
         # define a loss function that takes the stacked ensemble params, data, and target
@@ -213,7 +214,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         
         # Summing in numpy for the more precise pairwise summation algorithm.
         average_losses = stacked_losses.mean(axis=0)
-        assert average_losses.dtype == np.float64, "Ensure that the loss is calculated in double precision"
+        assert average_losses.dtype == np.float64, "Ensure that the loss was calculated in double precision"
         
         return average_losses
 
