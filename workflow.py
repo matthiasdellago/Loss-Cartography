@@ -12,6 +12,7 @@ from typing import List
 from torch.func import stack_module_state, functional_call
 from torch import vmap
 from copy import deepcopy
+from tqdm import tqdm
 # custom modules
 from utils.profiler import profiler
 from utils.param_math import iadd, scale, sub, norm, normalize, rand_like, project_to_module
@@ -38,7 +39,7 @@ torch.set_default_dtype(torch.float64) # double precision global default
 #           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-6
 #           - Example takes 350 seconds
 #           - ca. 9 GB GPU RAM
-# float23:  - Finite differences noise on the oom of 1e-8.
+# float32:  - Finite differences noise on the oom of 1e-8.
 #           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-3
 #           - Example takes 35 seconds
 #           - ca. 4.5 GB GPU RAM
@@ -99,7 +100,7 @@ def directions(c:dict) -> dict:
         
         with torch.set_grad_enabled(True):
             with profiler('1 step of gradient descent over the whole dataset'):
-                for data, target in dataloader:
+                for data, target in tqdm(dataloader):
                     data, target = data.to(device), target.to(device)
                     output = grad_model(data)
                     loss = criterion(output, target)
@@ -206,7 +207,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         batch_losses = []  # List to store batch losses
 
         with profiler(f'Evaluating stacked ensemble om {device}'):
-            for data, target in dataloader:
+            for data, target in tqdm(dataloader):
                 data, target = data.to(device), target.to(device)
                 batch_loss = vmap_loss(stacked_ensemble, data, target)
                 batch_losses.append(batch_loss)
