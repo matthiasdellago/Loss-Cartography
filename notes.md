@@ -18,3 +18,4 @@
 		- More parameters/wider layers, cause more roughness. Compare to Tensor Programs.
 	- Check out previous work on Fourier analysis of networks.
 		- https://bmild.github.io/fourfeat/
+- Why does the LL look like a quadratic potential in the limit for large numbers?
