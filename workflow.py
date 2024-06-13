@@ -297,7 +297,7 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
     for name, fig in finit_diff_figs.items():
         fig.update_layout({
             **common_layout,
-            'title': f'|{name}| of {description}',
+            'title': f'abs({name}) of {description}',
             'xaxis': {'type': 'log', 'title': 'Coarse Graining Scale', 'tickformat': '.0e'},
             'yaxis': {'type': 'log', 'title': f'|{name}|', 'tickformat': '.0e'},
         })
@@ -325,5 +325,14 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
     return [profile_fig] + list(finit_diff_figs.values())
 
 figs = plot(df, 'Simple MLP on MNIST')
+
 for fig in figs:
-    fig.show()
+    fig.show(config={
+        'toImageButtonOptions': {
+            'format': 'png',
+            'filename': fig.layout.title.text,
+            'height': 600,
+            'width': 800,
+            'scale': 1
+        }
+    })
