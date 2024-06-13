@@ -1,7 +1,7 @@
 ### Method
 
 ##### Theory
-We are interested in understanding the roughness of loss landscapes on different scales.
+Let's find *characteristic scales* in the loss ladscapes.
 Our starting point is the finite difference approximation of curvature for a given 'scale' $h$:
 $$
 f''(x) \approx \frac{f(x) - 2f(x+h) + f(x+2h)}{h^2}
@@ -21,17 +21,20 @@ NOTE: Should we instead define it as the deviation from the tangent space of the
 ### Results
 
 #### SimpleMLP on MNIST
-![[abs(Finite Difference) of Simple MLP on MNIST.png|400]]
-![[_Grit_ of Linear Regression.png|400]]
-![[_Curvature_ of Linear Regression.png|400]]
-#### Linear Regression (Pytorch)
+![[abs(Curvature) of Simple MLP on MNIST.png]]
+![[abs(Grit) of Simple MLP on MNIST.png]]
+![[abs(Finite Difference) of Simple MLP on MNIST.png]]
 
+#### Linear Regression (Pytorch)
+![[_Curvature_ of Linear Regression.png|300]]
+![[abs(Grit) of Simple MLP on MNIST.png|300]]
 ![[_Finite Difference_ of Linear Regression.png|300]]
 Looks almost the same! Why?
 #### Linear Regression (Analytical)
 ![[quadratic+noise.png]]
 They're both just a quadratic potential with noise.
 BIG QUESTION 1: Noise is numeric. But why quadratic?
+	- Investigate different loss criteria.
 BIG QUESTION 2: Try to find roughness we were originally looking for? Or pivot to understanding the noise and its implications?
 ### Conclusion
 ##### The loss landscape is noisy on the scale of plausible learning rates.
@@ -50,11 +53,10 @@ Especially with bfloat16 and other even lower precision types this will be highl
 Maybe the noise is a feature rather than a bug, creating langevin dynamics in otherwise pure SGD (EXPERIMENT, LITERATURE REVIEW).
 
 Misc Insights
-- Regularisation helps maintain a small gap between the largest and smallest singular value of a matrix -> good condition number!!
+- CONJECTURE: weight decay is just for maintaining a small gap between the largest and smallest singular value of a matrix -> good condition number!!
 - We should be able decrease precision until numerical noise is just belowthe order of batch noise!
 	- Momentum/adam helps with averaging out noise (langevin dynamics)
 - What does layernorm/batchnorm do to the condition number?
-- Maybe weight devay is just for maintaining good condition numbers by reducing spectral gap?
 
 ### Future Research
 1. Given precision, width and depth, what noise level can I expect in my gradient? 

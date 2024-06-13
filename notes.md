@@ -19,3 +19,11 @@
 	- Check out previous work on Fourier analysis of networks.
 		- https://bmild.github.io/fourfeat/
 - Why does the LL look like a quadratic potential in the limit for large numbers?
+	- Maybe criterion? try other criteria
+- Talk with Sebastian Lehner:
+	- Try:
+		- Different initialisations
+		- Trained points
+		- Different criterion functions
+	- call it 'characteristic scales'
+	- Just do a whole week of literature survey
