@@ -17,6 +17,8 @@ from tqdm import tqdm
 from utils.profiler import profiler
 from utils.param_math import iadd, scale, sub, norm, normalize, rand_like, project_to_module
 
+# TODO: make funcs importable without running the whole script. Seperate experiment template/demo and functions
+
 class SimpleMLP(nn.Module):
     def __init__(self):
         super(SimpleMLP, self).__init__()
