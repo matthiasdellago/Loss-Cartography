@@ -102,7 +102,7 @@ for name, model in mlps.items():
 
     df = curvature_scale_analysis(df)
 
-    df.head()
+    print(df.head())
 
     figs = plot_df(df, f'MLP with Layers {name} on MNIST')
 
