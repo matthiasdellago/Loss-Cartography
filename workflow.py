@@ -35,24 +35,14 @@ class SimpleMLP(nn.Module):
         x = self.fc3(x)
         return x
 
-torch.set_default_dtype(torch.float64) # double precision global default
-# SUPER IMPORTANT
-# float64:  - Finite differences noise on the oom of 1e-15.
-#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-6
-#           - Example takes 350 seconds
-#           - ca. 9 GB GPU RAM
-# float32:  - Finite differences noise on the oom of 1e-8.
-#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-3
-#           - Example takes 35 seconds
-#           - ca. 4.5 GB GPU RAM
-
 torch.set_grad_enabled(False)
 CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if CUDA else "cpu")
 
 # config dict for the experiment
-c = {
+cfg = {
     'device': DEVICE,
+    'precision': torch.float32,          # float32 or float64
     'center': SimpleMLP().to(DEVICE),   # the point in parameter space to start from
     'dataloader': DataLoader(
         MNIST('./data', download=True, transform=transforms.Compose([
@@ -71,7 +61,18 @@ c = {
     'min_oom':  -13 if CUDA else -1,    # closest sample will be 10**min_oom from the center
 }
 
-print(f'Running on {c["device"]}')
+torch.set_default_dtype(cfg['precision']) # precision global default
+# SUPER IMPORTANT
+# float64:  - Finite differences noise on the oom of 1e-15.
+#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-6
+#           - Example takes 350 seconds
+#           - ca. 9 GB GPU RAM
+# float32:  - Finite differences noise on the oom of 1e-8.
+#           - Transition from 'Quadratic' to 'Noise' behaviour at parameter distances on the order of 1e-3
+#           - Example takes 35 seconds
+#           - ca. 4.5 GB GPU RAM
+
+print(f'Running on {cfg["device"]}')
 
 def directions(c:dict) -> dict:
     """
@@ -131,7 +132,7 @@ def directions(c:dict) -> dict:
 
     return dirs
 
-dirs = directions(c)
+dirs = directions(cfg)
 
 def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     """
@@ -158,7 +159,7 @@ def dirs_and_dists(dir_names:[str], MIN_OOM:int, MAX_OOM:int) -> pd.DataFrame:
     # Create DataFrame directly with the computed distances.
     return pd.DataFrame({'Distance': dists_per_dir.flatten()}, index=multi_index)
 
-df = dirs_and_dists(dirs.keys(), c['min_oom'], c['max_oom'])
+df = dirs_and_dists(dirs.keys(), cfg['min_oom'], cfg['max_oom'])
 
 @torch.no_grad
 def dists_to_models(df:pd.DataFrame, dirs:dict, center:nn.Module) -> pd.DataFrame:
@@ -172,10 +173,10 @@ def dists_to_models(df:pd.DataFrame, dirs:dict, center:nn.Module) -> pd.DataFram
         df.at[(dir_name, step), 'Model'] = location
     return df
 
-df = dists_to_models(df, dirs, c['center'])
+df = dists_to_models(df, dirs, cfg['center'])
 
 # add the center model
-ensemble_list = [c['center']] + list(df['Model'])
+ensemble_list = [cfg['center']] + list(df['Model'])
 df.drop(columns='Model', inplace=True)
 
 @torch.no_grad
@@ -231,7 +232,7 @@ def eval_ensemble(ensemble_list:[nn.Module], dataloader:DataLoader, criterion:nn
         
         return average_losses
 
-ensemble_loss = eval_ensemble(ensemble_list, c['dataloader'], c['criterion'], c['device'])
+ensemble_loss = eval_ensemble(ensemble_list, cfg['dataloader'], cfg['criterion'], cfg['device'])
 
 # Convert the loss to a list and unpack
 center_loss, *df['Loss'] = ensemble_loss.tolist()
