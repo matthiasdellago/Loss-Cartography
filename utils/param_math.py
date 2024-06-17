@@ -33,7 +33,12 @@ def norm(a:nn.Module) -> nn.Module:
 @torch.no_grad
 def normalize(a:nn.Module) -> nn.Module:
     """normalize the parameters of a"""
-    return scale(a, 1/norm(a))
+    n = norm(a)
+    # avoid division by zero, raise error if norm is zero
+    if n == 0:
+        raise ValueError('Cannot normalize a vector with zero norm.')
+    else:
+        return scale(a, 1/n)
 
 @torch.no_grad
 def rand_like(a: nn.Module) -> nn.Module:
@@ -50,7 +55,14 @@ def project_to_module(a: nn.Module, target_subspace: str) -> nn.Module:
     subspace: Any parameter whose name contains the `target_subspace` string.
     """
     projection = deepcopy(a)
+    matched = False # remember if we found any parameters to project onto, raise error if not
+
     for name, param in projection.named_parameters():
-        if target_subspace not in name:
+        if target_subspace in name:
+            matched = True
+        else:
             param.data.zero_()
+    if not matched:
+        raise ValueError(f"subspace '{target_subspace}' not found in model parameters {[k for k, v in projection.named_parameters()]}")
+    
     return normalize(projection)

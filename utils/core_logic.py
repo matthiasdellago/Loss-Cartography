@@ -68,7 +68,7 @@ def directions(c:dict) -> dict:
             dirs[new_key] = projected_dir
 
     # check that they are all normalized
-    assert all(torch.isclose(norm(d), torch.tensor(1.)) for d in dirs.values())
+    assert all(torch.isclose(norm(d), torch.tensor(1.)) for d in dirs.values()), f'Not normalized: {[(k, norm(v)) for k,v in dirs.items()]}'
 
     return dirs
 
