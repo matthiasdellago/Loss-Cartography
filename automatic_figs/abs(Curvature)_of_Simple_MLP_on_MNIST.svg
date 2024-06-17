@@ -4,8 +4,8 @@
     &quot;device&quot;: &quot;cpu&quot;,
     &quot;precision&quot;: &quot;torch.float32&quot;,
     &quot;center&quot;: &quot;SimpleMLP(\n  (fc1): Linear(in_features=784, out_features=128, bias=True)\n  (fc2): Linear(in_features=128, out_features=128, bias=True)\n  (fc3): Linear(in_features=128, out_features=10, bias=True)\n)&quot;,
-    &quot;dataloader&quot;: &quot;&lt;torch.utils.data.dataloader.DataLoader object at 0x7f0077105210&gt;&quot;,
-    &quot;criterion&quot;: &quot;&lt;function cross_entropy at 0x7f007d055580&gt;&quot;,
+    &quot;dataloader&quot;: &quot;&lt;torch.utils.data.dataloader.DataLoader object at 0x7fe76b5f10d0&gt;&quot;,
+    &quot;criterion&quot;: &quot;&lt;function cross_entropy at 0x7fe771638d60&gt;&quot;,
     &quot;grad&quot;: false,
     &quot;subspaces&quot;: [
         &quot;fc1&quot;,
@@ -17,18 +17,18 @@
     &quot;min_oom&quot;: -1
 }</metadata>
   <ns0:rect x="0" y="0" width="700" height="600" style="fill: rgb(255, 255, 255); fill-opacity: 1;"/>
-  <ns0:defs id="defs-82011e">
+  <ns0:defs id="defs-c6f35c">
     <ns0:g class="clips">
-      <ns0:clipPath id="clip82011exyplot" class="plotclip">
+      <ns0:clipPath id="clipc6f35cxyplot" class="plotclip">
         <ns0:rect width="425" height="420"/>
       </ns0:clipPath>
-      <ns0:clipPath class="axesclip" id="clip82011ex">
+      <ns0:clipPath class="axesclip" id="clipc6f35cx">
         <ns0:rect x="80" y="0" width="425" height="600"/>
       </ns0:clipPath>
-      <ns0:clipPath class="axesclip" id="clip82011ey">
+      <ns0:clipPath class="axesclip" id="clipc6f35cy">
         <ns0:rect x="0" y="100" width="700" height="420"/>
       </ns0:clipPath>
-      <ns0:clipPath class="axesclip" id="clip82011exy">
+      <ns0:clipPath class="axesclip" id="clipc6f35cxy">
         <ns0:rect x="80" y="100" width="425" height="420"/>
       </ns0:clipPath>
     </ns0:g>
@@ -67,17 +67,24 @@
           <ns0:path class="xgrid crisp" transform="translate(426.48,0)" d="M0,100v420" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
         </ns0:g>
         <ns0:g class="y">
-          <ns0:path class="ygrid crisp" transform="translate(0,498.61)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,444.31)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,405.79)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,375.91)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,351.5)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,330.85)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,312.97)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,297.2)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,283.09000000000003)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,190.28)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
-          <ns0:path class="ygrid crisp" transform="translate(0,135.98)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,462.35)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,425.79)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,399.85)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,379.73)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,363.29)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,349.39)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,337.36)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,326.74)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,317.24)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,254.74)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,218.18)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,192.24)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,172.12)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,155.68)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,141.78)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,129.74)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,119.12)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
+          <ns0:path class="ygrid crisp" transform="translate(0,109.62)" d="M80,0h425" style="stroke: rgb(255, 255, 255); stroke-opacity: 1; stroke-width: 1px;"/>
         </ns0:g>
       </ns0:g>
       <ns0:g class="zerolinelayer"/>
@@ -91,109 +98,109 @@
       <ns0:g class="xaxislayer-below"/>
       <ns0:g class="yaxislayer-below"/>
       <ns0:g class="overaxes-below"/>
-      <ns0:g class="plot" transform="translate(80,100)" clip-path="url(#clip82011exyplot)">
+      <ns0:g class="plot" transform="translate(80,100)" clip-path="url(#clipc6f35cxyplot)">
         <ns0:g class="scatterlayer mlayer">
-          <ns0:g class="trace scatter trace6fcecc" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter traceed9db6" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M37.1,77.5L133.87,82.07L230.65,90.73" style="vector-effect: none; fill: none; stroke: rgb(76, 114, 176); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M37.1,186.95L133.87,190.35L230.65,196.87" style="vector-effect: none; fill: none; stroke: rgb(76, 114, 176); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(37.1,77.5)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(133.87,82.07)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(230.65,90.73)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(37.1,186.95)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(133.87,190.35)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(230.65,196.87)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(76, 114, 176); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter trace7fd106" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter tracef8fa73" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M109.68,51.53L206.45,30.93L303.23,24.75" style="vector-effect: none; fill: none; stroke: rgb(221, 132, 82); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M109.68,59.92L206.45,64.48L303.23,67.52" style="vector-effect: none; fill: none; stroke: rgb(221, 132, 82); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(109.68,51.53)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(206.45,30.93)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(303.23,24.75)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(109.68,59.92)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(206.45,64.48)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(303.23,67.52)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(221, 132, 82); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter tracece3766" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter trace985f69" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M85.48,395.25L182.26,391.33L279.03,394.39" style="vector-effect: none; fill: none; stroke: rgb(85, 168, 104); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M85.48,395.25L182.26,392.32L279.03,391.11" style="vector-effect: none; fill: none; stroke: rgb(85, 168, 104); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
               <ns0:path class="point" transform="translate(85.48,395.25)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(85, 168, 104); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(182.26,391.33)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(85, 168, 104); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(279.03,394.39)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(85, 168, 104); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(182.26,392.32)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(85, 168, 104); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(279.03,391.11)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(85, 168, 104); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter trace4b8c9d" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter tracebc43c8" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M97.58,74.44L194.35,81.41L291.13,95.61" style="vector-effect: none; fill: none; stroke: rgb(196, 78, 82); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M97.58,191.76L194.35,196.31L291.13,206.82" style="vector-effect: none; fill: none; stroke: rgb(196, 78, 82); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(97.58,74.44)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(194.35,81.41)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(291.13,95.61)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(97.58,191.76)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(194.35,196.31)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(291.13,206.82)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(196, 78, 82); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter traced49576" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter tracee7339c" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M25,68.69L121.77,64.82L218.55,56.51" style="vector-effect: none; fill: none; stroke: rgb(129, 114, 179); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M25,180.28L121.77,177.11L218.55,171.01" style="vector-effect: none; fill: none; stroke: rgb(129, 114, 179); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(25,68.69)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(121.77,64.82)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(218.55,56.51)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(25,180.28)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(121.77,177.11)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(218.55,171.01)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(129, 114, 179); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter trace30a9d6" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter trace3d7712" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M73.39,59.82L170.16,57.98L266.94,63.25" style="vector-effect: none; fill: none; stroke: rgb(147, 120, 96); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M73.39,42.02L170.16,34.4L266.94,24.75" style="vector-effect: none; fill: none; stroke: rgb(147, 120, 96); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(73.39,59.82)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(170.16,57.98)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(266.94,63.25)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(73.39,42.02)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(170.16,34.4)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(266.94,24.75)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(147, 120, 96); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter trace7ef0ff" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter trace1e20c1" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M49.19,390.83L145.97,390.57L242.74,389.16" style="vector-effect: none; fill: none; stroke: rgb(218, 139, 195); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M49.19,387.21L145.97,386.41L242.74,390.61" style="vector-effect: none; fill: none; stroke: rgb(218, 139, 195); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(49.19,390.83)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(145.97,390.57)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(242.74,389.16)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(49.19,387.21)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(145.97,386.41)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(242.74,390.61)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(218, 139, 195); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
-          <ns0:g class="trace scatter traceb7756c" style="stroke-miterlimit: 2; opacity: 1;">
+          <ns0:g class="trace scatter trace1580a6" style="stroke-miterlimit: 2; opacity: 1;">
             <ns0:g class="fills"/>
             <ns0:g class="errorbars"/>
             <ns0:g class="lines">
-              <ns0:path class="js-line" d="M61.29,61.77L158.06,55.84L254.84,45.44" style="vector-effect: none; fill: none; stroke: rgb(140, 140, 140); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
+              <ns0:path class="js-line" d="M61.29,180.7L158.06,177.42L254.84,169.78" style="vector-effect: none; fill: none; stroke: rgb(140, 140, 140); stroke-opacity: 1; stroke-width: 2px; opacity: 1;"/>
             </ns0:g>
             <ns0:g class="points">
-              <ns0:path class="point" transform="translate(61.29,61.77)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(158.06,55.84)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
-              <ns0:path class="point" transform="translate(254.84,45.44)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(61.29,180.7)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(158.06,177.42)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
+              <ns0:path class="point" transform="translate(254.84,169.78)" d="M3,0A3,3 0 1,1 0,-3A3,3 0 0,1 3,0Z" style="opacity: 1; stroke-width: 0px; fill: rgb(140, 140, 140); fill-opacity: 1;"/>
             </ns0:g>
             <ns0:g class="text"/>
           </ns0:g>
@@ -240,37 +247,58 @@
       </ns0:g>
       <ns0:g class="yaxislayer-above">
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" transform="translate(0,498.61)" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;">2e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" transform="translate(0,462.35)" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;">2e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,444.31)">3e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,425.79)">3e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,405.79)">4e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,399.85)">4e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,375.91)">5e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,379.73)">5e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,351.5)">6e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,363.29)">6e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,330.85)">7e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,349.39)">7e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,312.97)">8e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,337.36)">8e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,297.2)">9e−4</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,326.74)">9e−4</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="76" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,283.09000000000003)">1e−3</ns0:text>
+          <ns0:text text-anchor="end" x="76" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,317.24)">1e−3</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,190.28)">2e−3</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,254.74)">2e−3</ns0:text>
         </ns0:g>
         <ns0:g class="ytick">
-          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,135.98)">3e−3</ns0:text>
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,218.18)">3e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,192.24)">4e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,172.12)">5e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,155.68)">6e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,141.78)">7e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,129.74)">8e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="79" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,119.12)">9e−3</ns0:text>
+        </ns0:g>
+        <ns0:g class="ytick">
+          <ns0:text text-anchor="end" x="76" y="4.199999999999999" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 12px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre; opacity: 1;" transform="translate(0,109.62)">1e−2</ns0:text>
         </ns0:g>
       </ns0:g>
       <ns0:g class="overaxes-above"/>
@@ -286,9 +314,9 @@
   <ns0:g class="treemaplayer"/>
   <ns0:g class="sunburstlayer"/>
   <ns0:g class="glimages"/>
-  <ns0:defs id="topdefs-82011e">
+  <ns0:defs id="topdefs-c6f35c">
     <ns0:g class="clips"/>
-    <ns0:clipPath id="legend82011e">
+    <ns0:clipPath id="legendc6f35c">
       <ns0:rect width="175" height="181" x="0" y="0"/>
     </ns0:clipPath>
   </ns0:defs>
@@ -299,7 +327,7 @@
   <ns0:g class="infolayer">
     <ns0:g class="legend" pointer-events="all" transform="translate(513.5,100)">
       <ns0:rect class="bg" shape-rendering="crispEdges" width="175" height="181" x="0" y="0" style="stroke: rgb(68, 68, 68); stroke-opacity: 1; fill: rgb(255, 255, 255); fill-opacity: 1; stroke-width: 0px;"/>
-      <ns0:g class="scrollbox" transform="" clip-path="url(#legend82011e)">
+      <ns0:g class="scrollbox" transform="" clip-path="url(#legendc6f35c)">
         <ns0:text class="legendtitletext" text-anchor="start" x="2" y="18.2" style="font-family: 'Open Sans', verdana, arial, sans-serif; font-size: 14px; fill: rgb(36, 36, 36); fill-opacity: 1; white-space: pre;">Direction</ns0:text>
         <ns0:g class="groups">
           <ns0:g class="traces" transform="translate(0,32.7)" style="opacity: 1;">
