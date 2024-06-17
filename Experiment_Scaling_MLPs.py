@@ -39,6 +39,8 @@ torch.set_grad_enabled(False)
 CUDA = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if CUDA else "cpu")
 
+dataframes = []
+
 for name, model in mlps.items():
     if CUDA:
         torch.cuda.empty_cache()
@@ -61,9 +63,9 @@ for name, model in mlps.items():
         'criterion': F.cross_entropy,
         'grad': False,                        # should we look in the direction of gradient ascent and descent?
         'subspaces': [], # project directions onto modules with these substrings in their names. See project_to_module(). Leave empty for no projections.
-        'rand_dirs': 20 if CUDA else 0,     # number of random directions to add, in addition to the gradient and radial directions
+        'rand_dirs': 40 if CUDA else 0,     # number of random directions to add, in addition to the gradient and radial directions
         'max_oom':    2 if CUDA else 0,     # furthest sample will be 10**max_oom from the center
-        'min_oom':  -13 if CUDA else -1,    # closest sample will be 10**min_oom from the center
+        'min_oom':   -4 if CUDA else -1,    # closest sample will be 10**min_oom from the center
     }
 
     torch.set_default_dtype(cfg['precision']) # precision global default
@@ -102,21 +104,18 @@ for name, model in mlps.items():
 
     df = curvature_scale_analysis(df)
 
-    print(df.head())
+    dataframes.append(df)
 
-    figs = plot_df(df, f'MLP with Layers {name} on MNIST')
+# average over all directions
+means = []
+for df in dataframes:
+    means.append(df.groupby('Step').mean())
+means[0]
 
-    for fig in figs:
-        fig.show(config={
-            'toImageButtonOptions': {
-                'format': 'png',
-                'filename': fig.layout.title.text,
-                'height': 600,
-                'width': 800,
-                'scale': 1
-            }
-        })
-        # Save the figures
-        save_fig_with_cfg(dir='automatic_figs',fig=fig, config=cfg)
+combined_df = pd.concat(means, keys=mlps.keys())
+#Plotting with models as 'Directions'
+combined_df.index.names = ['Direction', 'Step']
+figs = plot_df(combined_df, 'MLPs of different sizes on MNIST')
 
-
+for fig in figs:
+    save_fig_with_cfg(dir='automatic_figs',fig=fig, config=cfg)
