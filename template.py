@@ -1,3 +1,10 @@
+#template.py
+import sys
+import os
+
+from utils.core_logic import directions, dists_to_models, dirs_and_dists, eval_ensemble, curvature_scale_analysis
+from utils.plots import plot_df, save_fig_with_cfg
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,16 +12,7 @@ from torchvision.datasets import MNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader
 import pandas as pd
-import numpy as np
 import os
-import plotly.graph_objects as go
-from typing import List
-from torch.func import stack_module_state, functional_call
-from torch import vmap
-from copy import deepcopy
-from tqdm import tqdm
-
-from utils.core_logic import directions, dists_to_models, dirs_and_dists, eval_ensemble, curvature_scale_analysis
 
 class SimpleMLP(nn.Module):
     def __init__(self):
@@ -97,7 +95,6 @@ df = curvature_scale_analysis(df)
 
 df.head()
 
-from utils.plots import plot_df, save_fig_with_cfg
 
 figs = plot_df(df, 'Simple MLP on MNIST')
 
@@ -113,5 +110,3 @@ for fig in figs:
     })
     # Save the figures
     save_fig_with_cfg(dir='automatic_figs',fig=fig, config=cfg)
-
-
