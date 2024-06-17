@@ -1,7 +1,4 @@
 #template.py
-import sys
-import os
-
 from utils.core_logic import directions, dists_to_models, dirs_and_dists, eval_ensemble, curvature_scale_analysis
 from utils.plots import plot_df, save_fig_with_cfg
 
@@ -73,7 +70,6 @@ dirs = directions(cfg)
 
 df = dirs_and_dists(dirs.keys(), cfg['min_oom'], cfg['max_oom'])
 
-
 df = dists_to_models(df, dirs, cfg['center'])
 
 # add the center model
@@ -94,7 +90,6 @@ df.sort_index(inplace=True)
 df = curvature_scale_analysis(df)
 
 df.head()
-
 
 figs = plot_df(df, 'Simple MLP on MNIST')
 
