@@ -54,7 +54,7 @@ cfg = {
         pin_memory=CUDA,
     ),
     'criterion': F.cross_entropy,
-    'grad': True,                        # should we look in the direction of gradient ascent and descent?
+    'grad': False,                        # should we look in the direction of gradient ascent and descent?
     'subspaces': ['fc1', 'weight', 'bias'], # project directions onto modules with these substrings in their names. See project_to_module()
     'rand_dirs': 20 if CUDA else 0,     # number of random directions to add, in addition to the gradient and radial directions
     'max_oom':    2 if CUDA else 0,     # furthest sample will be 10**max_oom from the center
@@ -327,6 +327,32 @@ def plot(df: pd.DataFrame, description: str) -> List[go.Figure]:
 
 figs = plot(df, 'Simple MLP on MNIST')
 
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+import json
+
+def save_fig_with_cfg(dir:str, fig:go.Figure, config:dict) -> None:
+    # Configure filename from plot title and directory
+    filename = f"{fig.layout.title.text.replace(' ', '_')}.svg"
+    filename = os.path.join(dir, filename)
+    # Save the figure as an SVG file
+    fig.write_image(filename)
+    
+    # Parse the saved SVG file and prepare metadata element
+    tree = ET.parse(filename)
+    root = tree.getroot()
+    metadata = ET.Element("metadata")
+    metadata.text = json.dumps(config, indent=4, default=str)
+    
+    # Insert metadata as the first child of the root element
+    root.insert(0, metadata)
+    
+    # Generate formatted XML string and save it
+    pretty_xml = minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
+    with open(filename, "w") as file:
+        file.write(pretty_xml)
+
+
 for fig in figs:
     fig.show(config={
         'toImageButtonOptions': {
@@ -337,3 +363,7 @@ for fig in figs:
             'scale': 1
         }
     })
+    # Save the figures
+    save_fig_with_cfg(dir='automatic_figs',fig=fig, config=cfg)
+
+
