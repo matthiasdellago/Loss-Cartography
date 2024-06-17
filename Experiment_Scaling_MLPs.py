@@ -55,7 +55,7 @@ for name, model in mlps.items():
                 transforms.Normalize((0.1307,), (0.3081,))
             ])),
             batch_size=100,
-            num_workers=os.cpu_count(),
+            num_workers=min(os.cpu_count(),10),
             pin_memory=CUDA,
         ),
         'criterion': F.cross_entropy,
