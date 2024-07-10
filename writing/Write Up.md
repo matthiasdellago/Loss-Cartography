@@ -26,9 +26,9 @@ NOTE: Should we instead define it as the deviation from the tangent space of the
 ![[abs(Finite Difference) of Simple MLP on MNIST.png]]
 
 #### Linear Regression (Pytorch)
-![[_Curvature_ of Linear Regression.png|300]]
-![[abs(Grit) of Simple MLP on MNIST.png|300]]
-![[_Finite Difference_ of Linear Regression.png|300]]
+![[_Curvature_ of Linear Regression.png]]
+![[abs(Grit) of Linear Regression.png]]
+![[_Finite Difference_ of Linear Regression.png]]
 Looks almost the same! Why?
 #### Linear Regression (Analytical)
 ![[quadratic+noise.png]]
@@ -54,7 +54,7 @@ Maybe the noise is a feature rather than a bug, creating langevin dynamics in ot
 
 Misc Insights
 - CONJECTURE: weight decay is just for maintaining a small gap between the largest and smallest singular value of a matrix -> good condition number!!
-- We should be able decrease precision until numerical noise is just belowthe order of batch noise!
+- We should be able decrease precision until numerical noise is just below the order of batch noise!
 	- Momentum/adam helps with averaging out noise (langevin dynamics)
 - What does layernorm/batchnorm do to the condition number?
 

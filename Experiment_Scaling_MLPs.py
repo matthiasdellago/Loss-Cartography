@@ -58,7 +58,7 @@ for name, model in mlps.items():
             ])),
             batch_size=100,
             num_workers=min(os.cpu_count(),10),
-            pin_memory=CUDA,
+            pin_memory=CUDA, # This is super important for speed!
         ),
         'criterion': F.cross_entropy,
         'grad': False,                        # should we look in the direction of gradient ascent and descent?
